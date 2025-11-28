@@ -1,0 +1,17 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # 1. HTML-Endung verstecken (optional für hübsche URLs)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteRule ^(.*)$ $1.html [L,QSA]
+
+  # 2. Das Sanity Studio Routing fixen
+  # Alles was mit /studio anfängt, soll auf /studio.html geleitet werden
+  RewriteRule ^studio/(.*)$ /studio.html [L,QSA]
+
+  # 3. Fallback für 404 Fehler (Next.js Custom 404)
+  ErrorDocument 404 /404.html
+</IfModule>

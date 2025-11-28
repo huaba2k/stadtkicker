@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: Damit der Footer immer unten klebt */
+html, body {
+  height: 100%;
+}
