@@ -34,6 +34,7 @@ export default function InternPage() {
     const loadData = async () => {
       // 1. Auth Check
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (!session) {
         router.push("/login");
         return;
@@ -55,7 +56,7 @@ export default function InternPage() {
         }
       }
 
-      // 2. Top Scorer
+      // 2. Top Scorer (Live Berechnung)
       const { data: members } = await supabase.from('members').select('id, first_name, last_name').eq('is_hidden', false);
       const { data: matches } = await supabase.from('match_results').select('goal_scorers');
       const statsMap: Record<string, number> = {};
@@ -80,6 +81,7 @@ export default function InternPage() {
         setLatestNews(newsData);
       } catch (e) { console.error(e); }
 
+      // 4. Agenda laden
       await loadAgenda();
       setLoading(false);
     };
@@ -100,7 +102,7 @@ export default function InternPage() {
     if (events) {
       (events as AppEvent[]).forEach(e => {
         const startDate = new Date(e.start_time);
-        // Typ-Sicherheit (Fallback)
+        
         const category = (['birthday', 'training', 'match', 'party', 'general', 'jhv', 'schafkopf', 'trip'].includes(e.category) ? e.category : 'general') as AgendaItem['type'];
 
         if (!e.is_recurring) {
@@ -143,7 +145,7 @@ export default function InternPage() {
     items.sort((a, b) => a.date.getTime() - b.date.getTime());
     setAgendaItems(items.slice(0, 8));
   };
-  
+
   const getFormattedTime = (date: Date) => date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) + ' Uhr';
 
   const getEventIcon = (type: string) => {
@@ -159,86 +161,146 @@ export default function InternPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div></div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 sm:p-8">
       <div className="max-w-7xl mx-auto">
+        
         <div className="mb-8 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Servus, {greetingName}!</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Willkommen im internen Bereich.</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Servus, {greetingName}!
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+              Willkommen im internen Bereich.
+            </p>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
+          
+          {/* LINKER HAUPTBEREICH (Kacheln) */}
           <div className="flex-grow">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
+              {/* Torjäger Widget */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"><FaFutbol className="text-primary-600" /> Top Torjäger</h3>
-                  <Link href="/intern/torschuetzen" className="text-xs bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300 px-2 py-1 rounded font-bold transition-colors">Alle anzeigen →</Link>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <FaFutbol className="text-primary-600" /> Top Torjäger
+                  </h3>
+                  <Link href="/intern/torschuetzen" className="text-xs bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300 px-2 py-1 rounded font-bold transition-colors">
+                    Alle anzeigen →
+                  </Link>
                 </div>
-                {topScorers.length === 0 ? <div className="flex-grow flex items-center justify-center text-slate-400 text-sm italic min-h-[100px]">Noch keine Tore.</div> : (
-                  <ul className="space-y-3">{topScorers.map((player, index) => (
+                {topScorers.length === 0 ? (
+                  <div className="flex-grow flex items-center justify-center text-slate-400 text-sm italic min-h-[100px]">
+                    Noch keine Tore.
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {topScorers.map((player, index) => (
                       <li key={player.id} className="flex justify-between items-center p-2 hover:bg-slate-50 dark:hover:bg-slate-700/30 rounded-lg transition-colors">
-                        <div className="flex items-center gap-3"><span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold text-white shadow-sm ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-slate-400' : 'bg-orange-600'}`}>{index + 1}</span><span className="font-medium text-slate-700 dark:text-slate-200">{player.first_name} {player.last_name.charAt(0)}.</span></div>
+                        <div className="flex items-center gap-3">
+                          <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold text-white shadow-sm ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-slate-400' : 'bg-orange-600'}`}>
+                            {index + 1}
+                          </span>
+                          <span className="font-medium text-slate-700 dark:text-slate-200">
+                            {player.first_name} {player.last_name.charAt(0)}.
+                          </span>
+                        </div>
                         <span className="font-bold text-slate-900 dark:text-white">{player.stats_goals}</span>
                       </li>
-                    ))}</ul>
+                    ))}
+                  </ul>
                 )}
               </div>
 
+              {/* News Widget */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"><FaNewspaper className="text-blue-600" /> Aktuelles</h3>
-                  <Link href="/intern/news" className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded font-bold transition-colors">Alle News →</Link>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <FaNewspaper className="text-blue-600" /> Aktuelles
+                  </h3>
+                  <Link href="/intern/news" className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded font-bold transition-colors">
+                    Alle News →
+                  </Link>
                 </div>
-                {latestNews.length === 0 ? <div className="flex-grow flex items-center justify-center text-slate-400 text-sm italic min-h-[100px]">Keine neuen Infos.</div> : (
-                  <div className="space-y-4">{latestNews.map((news) => (
+                {latestNews.length === 0 ? (
+                  <div className="flex-grow flex items-center justify-center text-slate-400 text-sm italic min-h-[100px]">
+                    Keine neuen Infos.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {latestNews.map((news) => (
                       <Link key={news._id} href={`/intern/news/${news.slug.current}`} className="block group">
-                        <div className="text-xs text-slate-500 mb-1">{new Date(news.publishedAt).toLocaleDateString('de-DE')}</div>
-                        <h4 className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary-600 transition-colors line-clamp-2">{news.title}</h4>
+                        <div className="text-xs text-slate-500 mb-1">
+                           {new Date(news.publishedAt).toLocaleDateString('de-DE')}
+                        </div>
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary-600 transition-colors line-clamp-2">
+                          {news.title}
+                        </h4>
                       </Link>
-                    ))}</div>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              <Link href="/intern/galerie" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border hover:border-primary-500 transition-all group flex items-center gap-4">
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaImages size={24}/></div><div><h3 className="font-bold text-slate-900 dark:text-white">Fotos</h3><p className="text-sm text-slate-500">Bilder von Feiern & Spielen</p></div>
+              {/* Kacheln */}
+              <Link href="/intern/galerie" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-primary-500 transition-all group flex items-center gap-4">
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaImages size={24}/></div>
+                <div><h3 className="font-bold text-slate-900 dark:text-white">Fotos</h3><p className="text-sm text-slate-500">Bilder von Feiern & Spielen</p></div>
               </Link>
-              <Link href="/intern/kalender" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border hover:border-primary-500 transition-all group flex items-center gap-4">
-                <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaCalendarAlt size={24}/></div><div><h3 className="font-bold text-slate-900 dark:text-white">Kalender</h3><p className="text-sm text-slate-500">Termine verwalten</p></div>
+
+              <Link href="/intern/kalender" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-primary-500 transition-all group flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaCalendarAlt size={24}/></div>
+                <div><h3 className="font-bold text-slate-900 dark:text-white">Kalender</h3><p className="text-sm text-slate-500">Termine verwalten</p></div>
               </Link>
-              {/* HIER WURDE MITGLIEDER & DOWNLOADS HINZUGEFÜGT */}
-              <Link href="/intern/mitglieder" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border hover:border-primary-500 transition-all group flex items-center gap-4">
-                <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaUsers size={24}/></div><div><h3 className="font-bold text-slate-900 dark:text-white">Mitglieder</h3><p className="text-sm text-slate-500">Adressen & Statistiken</p></div>
+
+              <Link href="/intern/mitglieder" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-primary-500 transition-all group flex items-center gap-4">
+                <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaUsers size={24}/></div>
+                <div><h3 className="font-bold text-slate-900 dark:text-white">Mitglieder</h3><p className="text-sm text-slate-500">Adressen & Statistiken</p></div>
               </Link>
-              <Link href="/intern/downloads" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border hover:border-primary-500 transition-all group flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaFileDownload size={24}/></div><div><h3 className="font-bold text-slate-900 dark:text-white">Downloads</h3><p className="text-sm text-slate-500">Satzung & Formulare</p></div>
+
+              <Link href="/intern/downloads" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-primary-500 transition-all group flex items-center gap-4">
+                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaFileDownload size={24}/></div>
+                <div><h3 className="font-bold text-slate-900 dark:text-white">Downloads</h3><p className="text-sm text-slate-500">Satzung & Formulare</p></div>
               </Link>
-              {/* NEU: SCHAFKOPF */}
-              <Link href="/intern/schafkopf" className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border hover:border-primary-500 transition-all group flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"><FaTrophy size={24}/></div><div><h3 className="font-bold text-slate-900 dark:text-white">Schafkopf</h3><p className="text-sm text-slate-500">Runden & Ergebnisse</p></div>
-              </Link>
+
             </div>
           </div>
 
-          {/* SIDEBAR */}
+          {/* RECHTE SEITE: SIDEBAR (AGENDA) */}
           <div className="w-full lg:w-80 flex-shrink-0">
              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden sticky top-24">
-                <div className="p-4 border-b bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center"><h3 className="font-bold text-slate-900 dark:text-white text-sm uppercase tracking-wider">Demnächst</h3><Link href="/intern/kalender" className="text-xs text-primary-600 hover:underline">Zum Kalender →</Link></div>
+                <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
+                   <h3 className="font-bold text-slate-900 dark:text-white text-sm uppercase tracking-wider">Demnächst</h3>
+                   <Link href="/intern/kalender" className="text-xs text-primary-600 hover:underline">Zum Kalender →</Link>
+                </div>
+                
                 <div className="max-h-[500px] overflow-y-auto">
-                   {agendaItems.length === 0 ? <p className="p-6 text-center text-slate-500 text-sm">Keine Termine in den nächsten Wochen.</p> : (
+                   {agendaItems.length === 0 ? (
+                      <p className="p-6 text-center text-slate-500 text-sm">Keine Termine in den nächsten Wochen.</p>
+                   ) : (
                       <ul className="divide-y divide-slate-100 dark:divide-slate-700">
                         {agendaItems.map((item) => (
                            <li key={item.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                               <div className="flex items-start gap-3">
+                                 {/* Datum Box */}
                                  <div className="flex flex-col items-center min-w-[3rem] bg-slate-100 dark:bg-slate-700 rounded p-1">
                                     <span className="text-xs font-bold text-slate-500 uppercase">{item.date.toLocaleDateString('de-DE', { month: 'short', timeZone: 'Europe/Berlin' })}</span>
                                     <span className="text-lg font-bold text-slate-900 dark:text-white leading-none">{item.date.getDate()}</span>
                                  </div>
+                                 
                                  <div>
-                                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">{getEventIcon(item.type)} {item.title}</h4>
+                                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                       {getEventIcon(item.type)} {item.title}
+                                    </h4>
                                     <div className="text-xs text-slate-500 mt-1 flex flex-col">
                                        <span>{item.type === 'birthday' ? 'Ganztägig' : getFormattedTime(item.date)}</span>
                                        {item.subtitle && <span className="opacity-75">{item.subtitle}</span>}
@@ -252,6 +314,7 @@ export default function InternPage() {
                 </div>
              </div>
           </div>
+
         </div>
       </div>
     </div>
