@@ -14,6 +14,7 @@ const baseNavigation = [
   { name: 'News', href: '/intern/news' },
   { name: 'Kalender', href: '/intern/kalender' }, 
   { name: 'Galerie', href: '/intern/galerie' },
+  { name: 'Schafkopf', href: '/intern/schafkopf' },
 ];
 
 // Admin-/Vorstands-Links (nur für Bearbeiter)

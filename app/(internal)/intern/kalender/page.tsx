@@ -52,11 +52,9 @@ export default function KalenderPage() {
   const [loading, setLoading] = useState(true);
   const [canEdit, setCanEdit] = useState(false);
 
-  // UI States
   const [showForm, setShowForm] = useState(false);
   const [showPast, setShowPast] = useState(false); 
   
-  // Modals
   const [showExceptionModal, setShowExceptionModal] = useState(false);
   const [selectedRecurringEvent, setSelectedRecurringEvent] = useState<AppEvent | null>(null);
   const [attendanceEvent, setAttendanceEvent] = useState<{id: string, title: string} | null>(null);
@@ -128,15 +126,8 @@ export default function KalenderPage() {
   const upcomingItems = items.filter(i => i.date >= todayStart);
   const pastItems = items.filter(i => i.date < todayStart).sort((a, b) => b.date.getTime() - a.date.getTime());
 
-  // --- ACTIONS ---
-
-  const startAdd = () => { 
-      setShowForm(true); 
-      setNewEvent({ 
-          title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", 
-          recurrence: "once", isEditing: false, editId: null 
-      }); 
-  };
+  // Actions
+  const startAdd = () => { setShowForm(true); setNewEvent({ title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", recurrence: "once", isEditing: false, editId: null }); };
   
   const startCopy = (item: CalendarItem) => { 
       setShowForm(true); 
@@ -157,7 +148,6 @@ export default function KalenderPage() {
       if (!event) return;
 
       const d = new Date(event.start_time);
-      // Format YYYY-MM-DD für Input
       const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
       const timeStr = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
 
@@ -243,7 +233,13 @@ export default function KalenderPage() {
       <div className="flex-grow min-w-0">
         <h3 className="font-bold text-slate-900 dark:text-white text-lg truncate pr-2">{item.title}</h3>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-500 dark:text-slate-400">
-          <span className="capitalize">{formatDate(item.date)} • {item.type === 'birthday' ? 'Ganztägig' : formatTime(item.date) + ' Uhr'}</span>
+          {/* FIX: Zeit wird als neue Zeile angezeigt, wenn der Platz eng wird */}
+          <span className="capitalize">{formatDate(item.date)}</span>
+          <span className="hidden md:inline">•</span>
+          <span className={`font-semibold ${item.type === 'birthday' ? 'text-amber-700' : 'text-slate-600 dark:text-slate-300'}`}>
+             {item.type === 'birthday' ? 'Ganztägig' : formatTime(item.date) + ' Uhr'}
+          </span>
+
           {item.subtitle && (<><span className="hidden md:inline">•</span><span className="truncate max-w-[200px]">{item.subtitle}</span></>)}
           {item.isRecurring && <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">Serie</span>}
         </div>
@@ -280,6 +276,7 @@ export default function KalenderPage() {
           </div>
           <form onSubmit={handleSaveEvent} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input required placeholder="Titel" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 md:col-span-2" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
+            
             <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600" value={newEvent.category} onChange={e => setNewEvent({...newEvent, category: e.target.value as any})}>
               <option value="training">Training</option>
               <option value="match">Spiel / Turnier</option>
@@ -289,6 +286,7 @@ export default function KalenderPage() {
               <option value="party">Feier</option>
               <option value="general">Sonstiges</option>
             </select>
+            
             <input required type="date" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} />
             <input required type="time" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})} />
             <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600" value={newEvent.recurrence} onChange={e => setNewEvent({...newEvent, recurrence: e.target.value as any})}><option value="once">Einmalig</option><option value="weekly">Wöchentlich</option></select>
