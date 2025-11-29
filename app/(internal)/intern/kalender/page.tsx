@@ -126,8 +126,15 @@ export default function KalenderPage() {
   const upcomingItems = items.filter(i => i.date >= todayStart);
   const pastItems = items.filter(i => i.date < todayStart).sort((a, b) => b.date.getTime() - a.date.getTime());
 
-  // Actions
-  const startAdd = () => { setShowForm(true); setNewEvent({ title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", recurrence: "once", isEditing: false, editId: null }); };
+  // --- ACTIONS ---
+
+  const startAdd = () => { 
+      setShowForm(true); 
+      setNewEvent({ 
+          title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", 
+          recurrence: "once", isEditing: false, editId: null 
+      }); 
+  };
   
   const startCopy = (item: CalendarItem) => { 
       setShowForm(true); 
@@ -167,12 +174,17 @@ export default function KalenderPage() {
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    const fullDate = new Date(`${newEvent.date}T${newEvent.time}`);
+    
+    // Datumskonstruktion für Zeitzonenkonsistenz
+    const [hours, minutes] = newEvent.time.split(':').map(Number);
+    const dateObj = new Date(newEvent.date); 
+    dateObj.setHours(hours, minutes, 0, 0);
+    
     const isWeekly = newEvent.recurrence === 'weekly';
     
     const payload = { 
         title: newEvent.title, 
-        start_time: fullDate.toISOString(), 
+        start_time: dateObj.toISOString(), 
         category: newEvent.category, 
         location: newEvent.location, 
         recurrence_type: isWeekly ? 'weekly' : null, 
@@ -233,7 +245,7 @@ export default function KalenderPage() {
       <div className="flex-grow min-w-0">
         <h3 className="font-bold text-slate-900 dark:text-white text-lg truncate pr-2">{item.title}</h3>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {/* FIX: Zeit wird als neue Zeile angezeigt, wenn der Platz eng wird */}
+          {/* FIX: Zeitanzeige ist jetzt robust, auch wenn Platz eng ist */}
           <span className="capitalize">{formatDate(item.date)}</span>
           <span className="hidden md:inline">•</span>
           <span className={`font-semibold ${item.type === 'birthday' ? 'text-amber-700' : 'text-slate-600 dark:text-slate-300'}`}>
