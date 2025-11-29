@@ -14,6 +14,7 @@ const baseNavigation = [
   { name: 'News', href: '/intern/news' },
   { name: 'Kalender', href: '/intern/kalender' }, 
   { name: 'Galerie', href: '/intern/galerie' },
+  { name: 'Downloads', href: '/intern/downloads' },
   { name: 'Schafkopf', href: '/intern/schafkopf' },
 ];
 
@@ -22,7 +23,6 @@ const adminNavigation = [
   { name: 'Mitglieder verwalten', href: '/intern/mitglieder' }, 
   { name: 'Torschützen-Statistik', href: '/intern/torschuetzen' },
   { name: 'Jahresbericht', href: '/intern/berichte' },
-  { name: 'Downloads verwalten', href: '/intern/downloads' },
   { name: 'Daten-Import', href: '/intern/admin/import' },
 ];
 
