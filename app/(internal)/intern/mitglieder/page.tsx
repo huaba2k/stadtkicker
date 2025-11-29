@@ -33,7 +33,7 @@ const initialNewMember: MemberFormState = {
 };
 
 type AttendanceStats = {
-  total: number;   // Summe aus Aktiv + Passiv + Helfer
+  total: number;
   active: number;
   passive: number;
   absent: number;
@@ -43,6 +43,12 @@ type AttendanceStats = {
 export default function MitgliederPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // RECHTE PRÜFUNG: Nur Admins/Vorstand/Trainer haben vollen Zugriff
+  const [canEdit, setCanEdit] = useState(false);
+  const [hasReadAccess, setHasReadAccess] = useState(false); // NEU: Wer darf die Liste überhaupt sehen
+  const [authChecking, setAuthChecking] = useState(true);
+
   const [showForm, setShowForm] = useState(false);
   const [newMember, setNewMember] = useState<MemberFormState>(initialNewMember);
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,18 +63,22 @@ export default function MitgliederPage() {
   // --- DATEN LADEN ---
   const fetchMembers = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("members").select("*").eq("is_hidden", false);
+    // Die Datenbank-Regel (SQL Policy) sorgt dafür, dass hier nur die erlaubten Rollen
+    // Ergebnisse bekommen. Wir filtern zusätzlich versteckte User raus.
+    const { data, error } = await supabase.from("members").select("*").eq("is_hidden", false).order("last_name", { ascending: true });
+    
     if (error) {
-      showNotification("Fehler beim Laden der Mitglieder.", 'error');
+      // Wenn RLS fehlschlägt, kommt der Fehler, aber der Zugriff wurde schon verweigert.
+      showNotification("Fehler beim Laden der Mitglieder: " + error.message, 'error');
     } else {
       setMembers(data as Member[]);
     }
     setLoading(false);
   };
 
-  // --- JAHRES-STATISTIK LADEN (RPC VERSION - High Performance & Limit-Free) ---
+  // --- JAHRES-STATISTIK LADEN (RPC) ---
   const fetchYearlyStats = async (year: number) => {
-    // Wir nutzen wieder RPC! Das SQL-Skript oben filtert Schafkopf jetzt automatisch raus.
+    // ... Logik bleibt gleich ...
     const { data, error } = await supabase.rpc('get_yearly_stats_v2', { year_input: year });
 
     if (error) {
@@ -93,25 +103,54 @@ export default function MitgliederPage() {
     setYearlyAttendance(statsMap);
   };
 
+  // --- RECHTEPRÜFUNG BEIM START ---
   useEffect(() => {
-    fetchMembers();
+    const checkRights = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user && user.email) {
+        const { data: member } = await supabase
+          .from("members")
+          .select("role")
+          .eq("email", user.email)
+          .maybeSingle();
+        
+        if (member) {
+          const role = member.role;
+          // Lesen erlaubt für Admin, Vorstand, Trainer (Mitglieder sollen nicht)
+          if (['admin', 'board', 'coach'].includes(role)) {
+            setHasReadAccess(true);
+            
+            // Bearbeiten/Löschen nur für Admin und Vorstand
+            if (role === 'admin' || role === 'board') {
+               setCanEdit(true);
+            }
+            
+            fetchMembers();
+            fetchYearlyStats(selectedYear);
+          }
+        }
+      }
+      setAuthChecking(false);
+    };
+    checkRights();
   }, []);
 
+  // Aktualisierung der Statistik (bleibt gleich)
   useEffect(() => {
-    fetchYearlyStats(selectedYear);
-  }, [selectedYear]);
+    if (hasReadAccess) fetchYearlyStats(selectedYear);
+  }, [selectedYear, hasReadAccess]);
 
-  // --- SORTIERFUNKTION ---
+
+  // --- RESTLICHE LOGIK ---
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
+    if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
   };
 
-  // --- FILTERN & SORTIEREN ---
   const processedMembers = useMemo(() => {
+    // ... (Filter- und Sortierlogik bleibt gleich)
     let filtered = members.filter(member =>
       member.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -134,11 +173,8 @@ export default function MitgliederPage() {
       }
 
       let result = 0;
-      if (typeof valA === 'string') {
-        result = valA.localeCompare(valB, 'de', { sensitivity: 'base' });
-      } else {
-        result = valA - valB;
-      }
+      if (typeof valA === 'string') result = valA.localeCompare(valB, 'de', { sensitivity: 'base' });
+      else result = valA - valB;
 
       if (sortConfig.direction === 'desc') result *= -1;
       if (result === 0) return a.last_name.localeCompare(b.last_name);
@@ -147,15 +183,12 @@ export default function MitgliederPage() {
     });
   }, [members, searchTerm, sortConfig, yearlyAttendance]);
 
-  // --- HELPER ---
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleExportPDF = () => {
-    window.print();
-  };
+  const handleExportPDF = () => { window.print(); };
 
   const statsHeader = useMemo(() => {
     const totalMembers = members.length;
@@ -164,40 +197,24 @@ export default function MitgliederPage() {
     return { totalMembers, garchingMembers, garchingPercentage };
   }, [members]);
 
-  // --- CRUD ---
+  // CRUD Logik (bleibt gleich, wird aber nur angezeigt wenn canEdit ist)
   const startAdd = () => { setShowForm(true); setNewMember(initialNewMember); };
-
   const startEdit = (member: Member) => {
     setShowForm(true);
     setNewMember({
-      first_name: member.first_name,
-      last_name: member.last_name,
-      email: member.email || "",
-      phone: member.phone || "",
-      birth_date: member.birth_date ? new Date(member.birth_date).toISOString().split('T')[0] : "",
-      role: member.role, 
-      status: member.status || "active",
-      city_of_residence: member.city_of_residence || "",
-      isEditing: true,
-      editId: member.id,
+      first_name: member.first_name, last_name: member.last_name, email: member.email || "",
+      phone: member.phone || "", birth_date: member.birth_date ? new Date(member.birth_date).toISOString().split('T')[0] : "",
+      role: member.role, status: member.status || "active", city_of_residence: member.city_of_residence || "",
+      isEditing: true, editId: member.id,
     });
   };
-
   const handleSaveMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
+    e.preventDefault(); setLoading(true);
     const dataToSave = {
-      first_name: newMember.first_name,
-      last_name: newMember.last_name,
-      email: newMember.email || null,
-      phone: newMember.phone || null,
-      birth_date: newMember.birth_date || null,
-      role: newMember.role,
-      status: newMember.status,
-      city_of_residence: newMember.city_of_residence || null, 
+      first_name: newMember.first_name, last_name: newMember.last_name, email: newMember.email || null,
+      phone: newMember.phone || null, birth_date: newMember.birth_date || null, role: newMember.role,
+      status: newMember.status, city_of_residence: newMember.city_of_residence || null, 
     };
-
     let error = null;
     if (newMember.isEditing && newMember.editId) {
       const result = await supabase.from("members").update(dataToSave).eq("id", newMember.editId);
@@ -206,39 +223,47 @@ export default function MitgliederPage() {
       const result = await supabase.from("members").insert([dataToSave]);
       error = result.error;
     }
-
     if (error) showNotification(`Fehler: ${error.message}`, 'error');
-    else {
-      showNotification(`Gespeichert.`, 'success');
-      setShowForm(false);
-      setNewMember(initialNewMember);
-      fetchMembers();
-    }
+    else { showNotification(`Gespeichert.`, 'success'); setShowForm(false); setNewMember(initialNewMember); fetchMembers(); }
     setLoading(false);
   };
-
   const handleDelete = async (id: string) => {
     if (window.confirm("Wirklich löschen?")) {
       setLoading(true);
       const { error } = await supabase.from("members").delete().eq("id", id);
       if (error) showNotification("Fehler beim Löschen.", 'error');
-      else {
-        showNotification("Gelöscht.", 'success');
-        fetchMembers();
-      }
+      else { showNotification("Gelöscht.", 'success'); fetchMembers(); }
       setLoading(false);
     }
   };
+
 
   const SortIcon = ({ columnKey }: { columnKey: string }) => {
     if (sortConfig.key !== columnKey) return <FaSort className="inline ml-1 text-slate-300" />;
     return sortConfig.direction === 'asc' ? <FaSortUp className="inline ml-1 text-primary-500" /> : <FaSortDown className="inline ml-1 text-primary-500" />;
   };
 
+  // --- RENDERING ---
+  if (authChecking) return <div className="min-h-screen flex items-center justify-center dark:text-white">Prüfe Berechtigungen...</div>;
+
+  if (!hasReadAccess) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-4 text-center bg-slate-50 dark:bg-slate-900">
+        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 text-2xl">🔒</div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Zugriff verweigert</h1>
+        <p className="text-slate-500 dark:text-slate-400 max-w-md mb-6">
+          Dieser Bereich ist nur für den Vorstand, Trainer und Administratoren zugänglich.
+        </p>
+        <Link href="/intern" className="text-primary-600 hover:underline font-medium">Zurück zum Dashboard</Link>
+      </div>
+    );
+  }
+
+
   return (
     <div className="max-w-full mx-auto p-4 sm:p-8 print:p-0">
       
-      {/* --- DRUCK ANSICHT --- */}
+      {/* DRUCK ANSICHT */}
       <section id="statistics-report" className="hidden print:block bg-white p-8">
           <h1 className="text-3xl font-bold mb-2 text-slate-900">Jahresbericht {selectedYear}</h1>
           <p className="text-slate-600 mb-6">Garchinger Stadtkicker e.V. - Anwesenheitsliste</p>
@@ -269,7 +294,7 @@ export default function MitgliederPage() {
           </table>
       </section>
       
-      {/* --- SCREEN UI --- */}
+      {/* SCREEN UI */}
       <div className="print:hidden">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Mitgliederverwaltung</h1>
@@ -301,7 +326,7 @@ export default function MitgliederPage() {
         </div>
 
         {/* Formular */}
-        {showForm && (
+        {showForm && canEdit && (
           <div className="mb-8 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg sticky top-20 z-40 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-2">
                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">{newMember.isEditing ? "Bearbeiten" : "Neu"}</h3>
@@ -338,7 +363,9 @@ export default function MitgliederPage() {
             <input type="text" placeholder="Suchen..." className="w-full p-2 pl-10 rounded-lg border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             <FaFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
           </div>
-          <button onClick={startAdd} className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"><FaUserPlus /> Neu</button>
+          {canEdit && (
+              <button onClick={startAdd} className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"><FaUserPlus /> Neu</button>
+          )}
         </div>
 
         {/* Tabelle */}
@@ -368,7 +395,6 @@ export default function MitgliederPage() {
                      return (
                     <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                        {/* Link zur Detailseite */}
                         <Link href={`/intern/mitglieder/${m.id}`} className="hover:text-primary-600 hover:underline transition-colors">
                           {m.last_name}, {m.first_name}
                         </Link>
@@ -390,8 +416,12 @@ export default function MitgliederPage() {
                       <td className="px-4 py-3 text-center font-bold bg-slate-100/50 dark:bg-slate-800/50">{stats.total}</td>
                       
                       <td className="px-4 py-3 text-right space-x-2 print:hidden">
-                        <button onClick={() => startEdit(m)} className="text-primary-600 hover:text-primary-900 p-1"><FaEdit /></button>
-                        <button onClick={() => handleDelete(m.id)} className="text-red-600 hover:text-red-900 p-1"><FaTrash /></button>
+                        {canEdit && (
+                            <>
+                                <button onClick={() => startEdit(m)} className="text-primary-600 hover:text-primary-900 p-1"><FaEdit /></button>
+                                <button onClick={() => handleDelete(m.id)} className="text-red-600 hover:text-red-900 p-1"><FaTrash /></button>
+                            </>
+                        )}
                       </td>
                     </tr>
                   )})}

@@ -242,18 +242,20 @@ export default function KalenderPage() {
         <span className="text-xl font-bold leading-none">{item.date.getDate()}</span>
         <span className="text-xs uppercase font-bold">{item.date.toLocaleDateString('de-DE', { month: 'short', timeZone: 'Europe/Berlin' })}</span>
       </div>
-      <div className="flex-grow min-w-0">
-        <h3 className="font-bold text-slate-900 dark:text-white text-lg truncate pr-2">{item.title}</h3>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {/* FIX: Zeitanzeige ist jetzt robust, auch wenn Platz eng ist */}
-          <span className="capitalize">{formatDate(item.date)}</span>
-          <span className="hidden md:inline">•</span>
-          <span className={`font-semibold ${item.type === 'birthday' ? 'text-amber-700' : 'text-slate-600 dark:text-slate-300'}`}>
-             {item.type === 'birthday' ? 'Ganztägig' : formatTime(item.date) + ' Uhr'}
-          </span>
+      <div className="flex-grow flex items-center justify-between">
+        <div className="min-w-0 flex-grow">
+          <h3 className="font-bold text-slate-900 dark:text-white text-lg truncate pr-2">{item.title}</h3>
+          {/* Flexibler Detailbereich: Bricht auf schmalen Screens sauber um */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <span className="capitalize">{formatDate(item.date)}</span>
+            <span className="hidden md:inline">•</span>
+            <span className={`font-semibold ${item.type === 'birthday' ? 'text-amber-700' : 'text-slate-600 dark:text-slate-300'}`}>
+               {item.type === 'birthday' ? 'Ganztägig' : formatTime(item.date) + ' Uhr'}
+            </span>
 
-          {item.subtitle && (<><span className="hidden md:inline">•</span><span className="truncate max-w-[200px]">{item.subtitle}</span></>)}
-          {item.isRecurring && <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">Serie</span>}
+            {item.subtitle && (<><span className="hidden md:inline">•</span><span className="truncate max-w-[200px]">{item.subtitle}</span></>)}
+            {item.isRecurring && <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">Serie</span>}
+          </div>
         </div>
       </div>
       {canEdit && (
