@@ -9,6 +9,7 @@ export const page = defineType({
       name: 'title',
       title: 'Seitentitel',
       type: 'string',
+      validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: 'slug',
@@ -20,70 +21,74 @@ export const page = defineType({
     defineField({
       name: 'isInternal',
       title: 'Nur intern sichtbar?',
+      description: 'Wenn aktiviert, ist die Seite nur im Mitgliederbereich sichtbar.',
       type: 'boolean',
       initialValue: false,
     }),
+    
+    // --- DER PAGE BUILDER ---
     defineField({
       name: 'content',
       title: 'Seiten-Inhalt',
       type: 'array',
       of: [
-        // 1. Text
+        // 1. Text-Block
         {
           type: 'object',
           name: 'sectionText',
           title: 'Text-Abschnitt',
+          icon: () => '📝',
           fields: [
-            { name: 'heading', title: 'Überschrift', type: 'string' },
+            { name: 'heading', title: 'Überschrift (Optional)', type: 'string' },
             { name: 'text', title: 'Inhalt', type: 'array', of: [{ type: 'block' }] },
-          ]
+          ],
+          preview: {
+            select: { title: 'heading', subtitle: 'text.0.children.0.text' },
+            prepare({ title, subtitle }) {
+              return { title: title || 'Text-Block', subtitle: subtitle || '' }
+            }
+          }
         },
-        // 2. Hero Bild
+        // 2. Hero-Bild
         {
           type: 'object',
           name: 'sectionHero',
-          title: 'Hero / Banner Bild',
+          title: 'Großes Bild (Hero)',
+          icon: () => '🖼️',
           fields: [
             { name: 'image', title: 'Bild', type: 'image', options: { hotspot: true } },
             { name: 'caption', title: 'Text auf dem Bild', type: 'string' },
-          ]
+          ],
+          preview: {
+            select: { title: 'caption', media: 'image' },
+            prepare({ title, media }) {
+              return { title: title || 'Hero-Bild', media: media }
+            }
+          }
         },
         // 3. Galerie
         {
           type: 'reference',
           name: 'galleryRef',
           title: 'Galerie einfügen',
+          icon: () => '📷',
           to: [{type: 'gallery'}]
         },
-        // 4. NEU: DATEI / DOWNLOAD
+        // 4. Datei-Download
         {
           type: 'object',
           name: 'sectionFile',
-          title: 'Datei-Download (PDF etc.)',
+          title: 'Datei-Download',
           icon: () => '📎',
           fields: [
-            { 
-              name: 'title', 
-              title: 'Titel der Datei (z.B. "Spielplan 2025")', 
-              type: 'string',
-              validation: (Rule) => Rule.required()
-            },
-            { 
-              name: 'description', 
-              title: 'Beschreibung (Optional)', 
-              type: 'string' 
-            },
-            { 
-              name: 'file', 
-              title: 'Datei hochladen', 
-              type: 'file',
-              options: { storeOriginalFilename: true } 
-            }
+            { name: 'title', title: 'Titel', type: 'string', validation: (Rule) => Rule.required() },
+            { name: 'description', title: 'Beschreibung', type: 'string' },
+            { name: 'file', title: 'Datei', type: 'file', options: { storeOriginalFilename: true } }
           ],
           preview: {
             select: { title: 'title', filename: 'file.asset.originalFilename' },
             prepare({ title, filename }) {
-              return { title: title, subtitle: filename || 'Keine Datei' }
+              return { title: title, subtitle: filename }
             }
           }
         }
