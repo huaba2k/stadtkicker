@@ -7,15 +7,15 @@ export type Member = {
   jersey_number: number | null;
   role: 'admin' | 'board' | 'member' | 'coach';
   joined_at: string | null;
-  left_at?: string | null; // <--- DAS HAT GEFEHLT (Austrittsdatum)
+  left_at?: string | null;
   active: boolean;
   email: string | null;
   city_of_residence?: string | null;
   phone?: string | null;
-  status?: 'active' | 'passive' | 'left' | null; // 'left' für Ausgetreten ergänzt
+  // NEU: 'guest' hinzugefügt
+  status?: 'active' | 'passive' | 'left' | 'guest' | null;
   is_hidden?: boolean;
   
-  // Stats
   stats_goals: number;
   stats_games: number;
   stats_attendance_count: number;

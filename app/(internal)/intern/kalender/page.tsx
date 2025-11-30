@@ -83,7 +83,11 @@ export default function KalenderPage() {
     const { data: events } = await supabase.from("events").select("*").order("start_time", { ascending: true });
     setEventsData(events as AppEvent[]);
     
-    const { data: members } = await supabase.from("members").select("id, first_name, last_name, birth_date, is_hidden").eq('is_hidden', false);
+    const { data: members } = await supabase
+  .from("members")
+  .select("id, first_name, last_name, birth_date, is_hidden, status")
+  .eq('is_hidden', false)
+  .neq('status', 'left'); // <--- DAS IST NEU: Keine Ausgeschiedenen
     
     let allItems: CalendarItem[] = [];
 
