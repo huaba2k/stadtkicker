@@ -13,12 +13,26 @@ export async function generateStaticParams() {
 
 // 2. Nur INTERNE Seiten laden
 async function getInternalPage(slug: string) {
+  // QUERY FIX: Wir müssen sectionFile explizit auspacken (asset->)
   const query = `*[_type == "page" && slug.current == $slug && isInternal == true][0] {
     title,
     content[] {
       ...,
       _type == 'galleryRef' => {
         "galleryData": @-> { title, images }
+      },
+      // NEU: Dieser Block hat gefehlt! Er holt die URL.
+      _type == 'sectionFile' => {
+        title,
+        description,
+        file {
+          asset-> {
+            url,
+            originalFilename,
+            size,
+            extension
+          }
+        }
       }
     }
   }`;
@@ -35,7 +49,7 @@ export default async function DynamicInternalPage({ params }: { params: Promise<
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 sm:p-8">
       <div className="max-w-5xl mx-auto">
-        {/* Zurück Button für bessere Navigation im internen Bereich */}
+        {/* Zurück Button */}
         <Link href="/intern" className="inline-flex items-center text-sm text-slate-500 hover:text-primary-600 mb-8 transition-colors">
           <FaArrowLeft className="mr-2" /> Zurück zum Dashboard
         </Link>
@@ -45,7 +59,7 @@ export default async function DynamicInternalPage({ params }: { params: Promise<
              {page.title}
            </h1>
            
-           {/* Hier wird der gleiche PageBuilder benutzt wie öffentlich! */}
+           {/* Der PageBuilder bekommt jetzt die korrekte URL */}
            <PageBuilder content={page.content} />
         </div>
       </div>

@@ -8,7 +8,6 @@ import { ThemeToggle } from './ThemeToggle';
 import { useState, useEffect, useRef } from 'react';
 import { FaBars, FaTimes, FaChevronDown, FaCog } from 'react-icons/fa';
 
-// Basis-Links für ALLE (Mitglieder/Leser)
 const baseNavigation = [
   { name: 'Dashboard', href: '/intern' },
   { name: 'News', href: '/intern/news' },
@@ -17,7 +16,6 @@ const baseNavigation = [
   { name: 'Schafkopf', href: '/intern/schafkopf' },
 ];
 
-// Admin-Links (im Dropdown)
 const adminNavigation = [
   { name: 'Mitglieder', href: '/intern/mitglieder' }, 
   { name: 'Statistik', href: '/intern/torschuetzen' },
@@ -33,7 +31,6 @@ export default function NavbarInternal() {
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   
-  // INTELLIGENZ: Platz messen für automatischen Umbruch
   const [forceMobile, setForceMobile] = useState(false);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const linksRef = useRef<HTMLDivElement>(null);
@@ -58,8 +55,8 @@ export default function NavbarInternal() {
         const containerWidth = navContainerRef.current.offsetWidth;
         const linksWidth = linksRef.current.scrollWidth;
         
-        // Wenn Links breiter sind als der Container (minus Sicherheitspuffer), auf Mobile umschalten
-        if (linksWidth > containerWidth - 30) {
+        // Wenn Links breiter sind als der Container, auf Mobile umschalten
+        if (linksWidth > containerWidth - 20) {
           setForceMobile(true);
         } else {
           setForceMobile(false);
@@ -70,7 +67,7 @@ export default function NavbarInternal() {
     checkOverflow();
     window.addEventListener('resize', checkOverflow);
     return () => window.removeEventListener('resize', checkOverflow);
-  }, [canEdit]); // Neu prüfen wenn Admin-Rechte geladen sind (mehr Links = mehr Platzbedarf)
+  }, [canEdit]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -79,7 +76,8 @@ export default function NavbarInternal() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg">
+    // Z-Index hoch gesetzt, damit das Menü über anderen Sticky-Elementen liegt
+    <nav className="sticky top-0 z-[100] bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           
@@ -93,8 +91,9 @@ export default function NavbarInternal() {
             </Link>
           </div>
 
-          {/* MITTLERER BEREICH (Dynamisch: Desktop oder versteckt) */}
-          <div className="flex-grow h-full flex items-center justify-center overflow-hidden" ref={navContainerRef}>
+          {/* MITTLERER BEREICH */}
+          {/* WICHTIG: 'overflow-hidden' ENTFERNT und durch 'relative' ersetzt */}
+          <div className="flex-grow h-full flex items-center justify-center relative" ref={navContainerRef}>
              <div 
                 ref={linksRef} 
                 className={`flex items-center space-x-1 whitespace-nowrap transition-opacity duration-200 ${forceMobile ? 'opacity-0 pointer-events-none absolute' : 'opacity-100'}`}
@@ -126,14 +125,14 @@ export default function NavbarInternal() {
                       <FaChevronDown className={`w-3 h-3 transition-transform ${showAdminDropdown ? 'rotate-180' : ''}`} />
                     </button>
                     
-                    {/* Dropdown Menu */}
-                    <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl bg-slate-800 border border-slate-700 z-[60] overflow-hidden transition-all ${showAdminDropdown ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0'}`}>
+                    {/* DROPDOWN MENÜ: Hoher Z-Index und absolute Positionierung */}
+                    <div className={`absolute right-0 top-full mt-2 w-56 rounded-xl shadow-2xl bg-slate-800 border border-slate-700 z-[200] overflow-hidden transition-all origin-top-right ${showAdminDropdown ? 'opacity-100 visible scale-100 translate-y-0' : 'opacity-0 invisible scale-95 -translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-hover:translate-y-0'}`}>
                       {adminNavigation.map((item) => (
                         <Link 
                           key={item.name}
                           href={item.href} 
                           onClick={() => setShowAdminDropdown(false)}
-                          className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-primary-400 first:rounded-t-xl last:rounded-b-xl"
+                          className="block px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 hover:text-primary-400 border-b border-slate-700/50 last:border-0"
                         >
                           {item.name}
                         </Link>
@@ -152,7 +151,7 @@ export default function NavbarInternal() {
               Abmelden
             </button>
 
-            {/* HAMBURGER: Erscheint bei forceMobile ODER kleinem Screen */}
+            {/* HAMBURGER */}
             <button 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className={`${forceMobile ? 'block' : 'md:hidden'} p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg`}
@@ -163,9 +162,9 @@ export default function NavbarInternal() {
         </div>
       </div>
       
-      {/* MOBILE MENÜ (Hamburger Ansicht) */}
+      {/* MOBILE MENÜ */}
       {isMobileMenuOpen && (
-        <div className="border-t border-slate-700 bg-slate-900 shadow-xl">
+        <div className="border-t border-slate-700 bg-slate-900 shadow-xl absolute w-full left-0 z-[90]">
            <div className="px-4 pt-4 pb-6 space-y-2 max-h-[80vh] overflow-y-auto">
              <p className="px-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Menü</p>
              {baseNavigation.map((item) => (
