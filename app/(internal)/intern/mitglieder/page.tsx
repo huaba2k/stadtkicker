@@ -267,7 +267,7 @@ export default function MitgliederPage() {
                         <div className="flex gap-2 text-[10px]">
                             {m.role !== 'member' && <span className="text-slate-500 uppercase">{m.role === 'board' ? 'Vorstand' : m.role}</span>}
                             {m.status === 'guest' && <span className="text-blue-500 font-bold">Gast</span>}
-                            {m.left_at && <span className="text-red-400">Ausgetreten: {leftYear}</span>}
+                            {m.left_at && <span className="text-red-400">Ausgeschieden: {leftYear}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">
