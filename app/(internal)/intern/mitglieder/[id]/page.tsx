@@ -122,29 +122,17 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
 
   // --- STATISTIK LOGIK ---
   const stats = {
-    // Matches: Aktiv gespielt ODER Helfer gewesen
     matches: history.filter(h => h.category === 'match' && (h.status === 'active' || h.status === 'helper')).length,
-    
-    // Trainings: Nur aktiv
     trainings: history.filter(h => h.category === 'training' && h.status === 'active').length,
-    
-    // NEU: Schafkopf separat zählen
     schafkopf: history.filter(h => h.category === 'schafkopf').length,
-
-    // Events: Party, General, JHV, Trip (OHNE Schafkopf)
     events: history.filter(h => 
         ['party', 'general', 'jhv', 'trip'].includes(h.category) && 
         ['active', 'passive', 'helper'].includes(h.status)
     ).length,
-    
-    // Helfer allgemein
     helper: history.filter(h => h.status === 'helper').length,
-    
-    // Tore
     totalGoals: history.reduce((sum, h) => sum + h.goals, 0),
   };
   
-  // Quote
   const goalsPerMatch = stats.matches > 0 ? (stats.totalGoals / stats.matches).toFixed(2) : "0.00";
 
   if (loading) return (
@@ -214,8 +202,6 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
 
         {/* --- STATISTIKEN GRID --- */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-            
-            {/* 1. Spiele */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">
                 <div className="text-2xl font-bold text-slate-900 dark:text-white flex justify-center items-center gap-2">
                    <FaFutbol className="text-slate-400 text-lg" /> {stats.matches}
@@ -223,7 +209,6 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Spiele (+ Helfer)</div>
             </div>
 
-            {/* 2. Tore */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400 flex justify-center items-center gap-2">
                    {stats.totalGoals}
@@ -231,7 +216,6 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Tore</div>
             </div>
 
-            {/* 3. Quote */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 flex justify-center items-center gap-2">
                    <FaChartLine className="text-blue-300 text-lg" /> {goalsPerMatch}
@@ -239,7 +223,6 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Ø Tore/Spiel</div>
             </div>
 
-            {/* 4. Training */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">
                 <div className="text-2xl font-bold text-slate-900 dark:text-white flex justify-center items-center gap-2">
                    <FaRunning className="text-orange-500 text-lg" /> {stats.trainings}
@@ -247,7 +230,6 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Trainings</div>
             </div>
 
-            {/* 5. Schafkopf (NEU) */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">
                 <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 flex justify-center items-center gap-2">
                    <FaTrophy className="text-emerald-300 text-lg" /> {stats.schafkopf}
@@ -255,12 +237,11 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Schafkopf</div>
             </div>
 
-            {/* 6. Events */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">
                 <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 flex justify-center items-center gap-2">
                    <FaGlassCheers className="text-purple-300 text-lg" /> {stats.events}
                 </div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Events/Feiern</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Events</div>
             </div>
         </div>
 
@@ -270,49 +251,52 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
         </h2>
 
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-           <table className="w-full text-sm text-left">
-             <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-700">
-               <tr>
-                 <th className="px-6 py-3">Datum</th>
-                 <th className="px-6 py-3">Event</th>
-                 <th className="px-6 py-3">Art</th>
-                 <th className="px-6 py-3 text-center">Status</th>
-                 <th className="px-6 py-3 text-right">Tore</th>
-               </tr>
-             </thead>
-             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-               {history.map((item, idx) => (
-                 <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
-                   <td className="px-6 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-mono">
-                     {item.date.toLocaleDateString('de-DE')}
-                   </td>
-                   <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">
-                     {item.title} 
-                   </td>
-                   <td className="px-6 py-3 capitalize text-slate-500">
-                      {item.category === 'general' ? 'Sonstiges' : item.category === 'jhv' ? 'JHV' : item.category}
-                   </td>
-                   <td className="px-6 py-3 text-center">
-                      {item.status === 'active' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Aktiv</span>}
-                      {item.status === 'passive' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Passiv</span>}
-                      {item.status === 'helper' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">Helfer</span>}
-                      {item.status === 'absent' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Abwesend</span>}
-                      {item.status === 'excused' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">Entsch.</span>}
-                   </td>
-                   <td className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white">
-                     {item.goals > 0 ? (
-                       <span className="flex items-center justify-end gap-1 text-green-600 dark:text-green-400">
-                         <FaFutbol className="text-xs" /> {item.goals}
-                       </span>
-                     ) : <span className="text-slate-300 dark:text-slate-600">-</span>}
-                   </td>
+           {/* FIX: Overflow Container für horizontales Scrollen */}
+           <div className="overflow-x-auto">
+             <table className="w-full text-sm text-left min-w-[600px]">
+               <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-700">
+                 <tr>
+                   <th className="px-6 py-3">Datum</th>
+                   <th className="px-6 py-3">Event</th>
+                   <th className="px-6 py-3">Art</th>
+                   <th className="px-6 py-3 text-center">Status</th>
+                   <th className="px-6 py-3 text-right">Tore</th>
                  </tr>
-               ))}
-               {history.length === 0 && (
-                 <tr><td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">Noch keine Einträge vorhanden.</td></tr>
-               )}
-             </tbody>
-           </table>
+               </thead>
+               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                 {history.map((item, idx) => (
+                   <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
+                     <td className="px-6 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-mono">
+                       {item.date.toLocaleDateString('de-DE')}
+                     </td>
+                     <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">
+                       {item.title} 
+                     </td>
+                     <td className="px-6 py-3 capitalize text-slate-500">
+                        {item.category === 'general' ? 'Sonstiges' : item.category === 'jhv' ? 'JHV' : item.category}
+                     </td>
+                     <td className="px-6 py-3 text-center">
+                        {item.status === 'active' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Aktiv</span>}
+                        {item.status === 'passive' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Passiv</span>}
+                        {item.status === 'helper' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">Helfer</span>}
+                        {item.status === 'absent' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Abwesend</span>}
+                        {item.status === 'excused' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">Entsch.</span>}
+                     </td>
+                     <td className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white">
+                       {item.goals > 0 ? (
+                         <span className="flex items-center justify-end gap-1 text-green-600 dark:text-green-400">
+                           <FaFutbol className="text-xs" /> {item.goals}
+                         </span>
+                       ) : <span className="text-slate-300 dark:text-slate-600">-</span>}
+                     </td>
+                   </tr>
+                 ))}
+                 {history.length === 0 && (
+                   <tr><td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">Noch keine Einträge vorhanden.</td></tr>
+                 )}
+               </tbody>
+             </table>
+           </div>
         </div>
       </div>
     </div>

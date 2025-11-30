@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { ThemeToggle } from './ThemeToggle';
-import { useState, useEffect } from 'react';
-import { FaChevronDown, FaCog } from 'react-icons/fa'; // Icons für Dropdown
+import { useState, useEffect, useRef } from 'react';
+import { FaBars, FaTimes, FaChevronDown, FaCog } from 'react-icons/fa';
 
 // Basis-Links für ALLE (Mitglieder/Leser)
 const baseNavigation = [
@@ -14,34 +14,35 @@ const baseNavigation = [
   { name: 'News', href: '/intern/news' },
   { name: 'Kalender', href: '/intern/kalender' }, 
   { name: 'Galerie', href: '/intern/galerie' },
-  { name: 'Downloads', href: '/intern/downloads' },
   { name: 'Schafkopf', href: '/intern/schafkopf' },
 ];
 
-// Admin-/Vorstands-Links (nur für Bearbeiter)
+// Admin-Links (im Dropdown)
 const adminNavigation = [
-  { name: 'Mitglieder verwalten', href: '/intern/mitglieder' }, 
-  { name: 'Torschützen-Statistik', href: '/intern/torschuetzen' },
-  { name: 'Jahresbericht', href: '/intern/berichte' },
-  { name: 'Daten-Import', href: '/intern/admin/import' },
+  { name: 'Mitglieder', href: '/intern/mitglieder' }, 
+  { name: 'Statistik', href: '/intern/torschuetzen' },
+  { name: 'Berichte', href: '/intern/berichte' },
+  { name: 'Downloads', href: '/intern/downloads' },
+  { name: 'Import', href: '/intern/admin/import' },
 ];
 
 export default function NavbarInternal() {
   const router = useRouter();
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   
-  const [canEdit, setCanEdit] = useState(false); // Rechte für Bearbeitungs-Links
-  const [menuItems, setMenuItems] = useState(baseNavigation); // Hauptmenüpunkte
+  // INTELLIGENZ: Platz messen
+  const [forceMobile, setForceMobile] = useState(false);
+  const navContainerRef = useRef<HTMLDivElement>(null);
+  const linksRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkRights = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user && user.email) {
         const { data: member } = await supabase.from("members").select("role").eq("email", user.email).maybeSingle();
-        
-        // Admin oder Vorstand hat Bearbeitungsrechte
         if (member && (member.role === 'admin' || member.role === 'board')) {
           setCanEdit(true);
         }
@@ -49,6 +50,28 @@ export default function NavbarInternal() {
     };
     checkRights();
   }, []);
+
+  // --- OVERFLOW CHECK ---
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (navContainerRef.current && linksRef.current) {
+        const containerWidth = navContainerRef.current.offsetWidth;
+        const linksWidth = linksRef.current.scrollWidth;
+        
+        // Wenn Links breiter sind als der Container (minus Puffer), umschalten
+        if (linksWidth > containerWidth - 30) {
+          setForceMobile(true);
+        } else {
+          setForceMobile(false);
+        }
+      }
+    };
+
+    // Check beim Laden und bei Fensteränderung
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [canEdit]); // Neu prüfen wenn Admin-Rechte geladen sind (mehr Links)
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -59,108 +82,115 @@ export default function NavbarInternal() {
   return (
     <nav className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-16 items-center">
           
-          <div className="flex items-center">
-            <Link href="/intern" className="font-bold text-xl flex items-center gap-3 mr-8">
+          {/* LOGO */}
+          <div className="flex-shrink-0 flex items-center gap-3 mr-4">
+            <Link href="/intern" className="flex items-center gap-3">
               <div className="relative w-8 h-8">
                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
               </div>
-              <span className="hidden md:block text-slate-100">Mitgliederbereich</span>
+              <span className="hidden sm:block font-bold text-xl text-slate-100">Mitgliederbereich</span>
             </Link>
+          </div>
 
-            {/* DESKTOP HAUPTMENÜ */}
-            <div className="hidden md:flex items-center space-x-1">
-              {menuItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                return (
-                  <Link 
-                    key={item.name}
-                    href={item.href} 
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-slate-800 text-primary-400 shadow-sm border border-slate-700"
-                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                    }`}
-                  >
-                    {item.name}
-                  </Link>
-                );
-              })}
+          {/* MITTLERER BEREICH (Dynamisch) */}
+          <div className="flex-grow h-full flex items-center justify-center overflow-hidden" ref={navContainerRef}>
+             <div 
+                ref={linksRef} 
+                className={`flex items-center space-x-1 whitespace-nowrap transition-opacity duration-200 ${forceMobile ? 'opacity-0 pointer-events-none absolute' : 'opacity-100'}`}
+             >
+                {baseNavigation.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link 
+                      key={item.name}
+                      href={item.href} 
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive ? "bg-slate-800 text-primary-400 shadow-sm border border-slate-700" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {item.name}
+                    </Link>
+                  );
+                })}
 
-              {/* ADMIN DROPDOWN (Nur für Bearbeiter sichtbar) */}
-              {canEdit && (
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowAdminDropdown(!showAdminDropdown)}
-                    className="px-3 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white flex items-center gap-1"
-                  >
-                    <FaCog className="w-4 h-4" />
-                    Verwaltung
-                    <FaChevronDown className={`w-3 h-3 transition-transform ${showAdminDropdown ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {/* Dropdown Inhalt */}
-                  {showAdminDropdown && (
-                    <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-2xl bg-slate-800 ring-1 ring-white/10 z-50 overflow-hidden">
+                {/* ADMIN DROPDOWN (Nur für Berechtigte) */}
+                {canEdit && (
+                  <div className="relative group ml-2">
+                    <button 
+                      onClick={() => setShowAdminDropdown(!showAdminDropdown)}
+                      className="px-3 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white flex items-center gap-1 border border-transparent hover:border-slate-700"
+                    >
+                      <FaCog className="w-4 h-4" />
+                      Verwaltung
+                      <FaChevronDown className={`w-3 h-3 transition-transform ${showAdminDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl bg-slate-800 border border-slate-700 z-50 overflow-hidden transition-all ${showAdminDropdown ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0'}`}>
                       {adminNavigation.map((item) => (
                         <Link 
                           key={item.name}
                           href={item.href} 
                           onClick={() => setShowAdminDropdown(false)}
-                          className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-primary-400 transition-colors"
+                          className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-primary-400 first:rounded-t-xl last:rounded-b-xl"
                         >
                           {item.name}
                         </Link>
                       ))}
                     </div>
-                  )}
-                </div>
-              )}
-
-            </div>
+                  </div>
+                )}
+             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* RECHTER BEREICH */}
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 ml-4">
             <ThemeToggle />
-            <button onClick={handleLogout} className="hidden md:block bg-red-600/10 hover:bg-red-600 text-red-200 hover:text-white px-3 py-2 rounded-lg text-sm transition-all border border-red-900/30 hover:border-red-500">Abmelden</button>
             
-            {/* MOBILE HAMBURGER */}
+            <button onClick={handleLogout} className="hidden md:block bg-red-600/10 hover:bg-red-600 text-red-200 hover:text-white px-3 py-2 rounded-lg text-sm transition-all border border-red-900/30 hover:border-red-500">
+              Abmelden
+            </button>
+
+            {/* HAMBURGER: Erscheint bei forceMobile ODER kleinem Screen */}
             <button 
-              onClick={() => setIsOpen(!isOpen)}
-              className="md:hidden p-2 text-slate-300 hover:text-white"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className={`${forceMobile ? 'block' : 'md:hidden'} p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg`}
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
-              </svg>
+              {isMobileMenuOpen ? <FaTimes className="w-6 h-6" /> : <FaBars className="w-6 h-6" />}
             </button>
           </div>
         </div>
       </div>
       
-      {/* MOBILE MENÜ (Hamburger Ansicht) */}
-      {isOpen && (
-        <div className="md:hidden bg-slate-800 border-t border-slate-700 shadow-xl">
-           <div className="px-2 pt-2 pb-3 space-y-1">
-             {menuItems.map((item) => (
-               <Link key={item.name} href={item.href} onClick={() => setIsOpen(false)} className={`block px-3 py-3 rounded-md text-base font-medium text-slate-300 hover:bg-slate-700 hover:text-white`}>
+      {/* MOBILE MENÜ */}
+      {isMobileMenuOpen && (
+        <div className="border-t border-slate-700 bg-slate-900 shadow-xl">
+           <div className="px-4 pt-4 pb-6 space-y-2 max-h-[80vh] overflow-y-auto">
+             <p className="px-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Menü</p>
+             {baseNavigation.map((item) => (
+               <Link key={item.name} href={item.href} onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-3 rounded-lg text-base font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
                    {item.name}
                </Link>
              ))}
              
-             {/* Admin Sektion mobil (Alle Links darunter) */}
              {canEdit && (
-                <div className="mt-4 pt-2 border-t border-slate-700">
-                   <h4 className="text-xs font-bold text-slate-400 px-3 py-2 uppercase">Verwaltung</h4>
+                <div className="mt-6 pt-4 border-t border-slate-800">
+                   <p className="px-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Verwaltung</p>
                    {adminNavigation.map((item) => (
-                      <Link key={item.name} href={item.href} onClick={() => setIsOpen(false)} className={`block px-3 py-3 rounded-md text-base font-medium text-slate-300 hover:bg-slate-700 hover:text-white`}>
+                      <Link key={item.name} href={item.href} onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-3 rounded-lg text-base font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
                            {item.name}
                        </Link>
                    ))}
                 </div>
              )}
              
-             <button onClick={handleLogout} className="w-full text-left mt-4 block px-3 py-3 rounded-md text-base font-medium text-red-400 hover:bg-slate-900 hover:text-red-300">Abmelden</button>
+             <div className="mt-6 pt-4 border-t border-slate-800">
+                <button onClick={handleLogout} className="w-full text-left px-3 py-3 rounded-lg text-base font-medium text-red-400 hover:bg-red-900/20">
+                    Abmelden
+                </button>
+             </div>
            </div>
         </div>
       )}

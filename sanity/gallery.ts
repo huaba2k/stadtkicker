@@ -1,48 +1,60 @@
-export const gallery = {
+import { defineType, defineField } from 'sanity';
+
+export const gallery = defineType({
   name: 'gallery',
-  title: 'Foto-Album',
+  title: 'Galerie / Album',
   type: 'document',
   fields: [
-    {
+    defineField({
       name: 'title',
-      title: 'Titel des Albums (z.B. Turnier 2023)',
+      title: 'Titel des Albums',
       type: 'string',
-    },
-    {
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: 'slug',
-      title: 'Link (Slug)',
+      title: 'Slug',
       type: 'slug',
       options: { source: 'title' },
-    },
-    {
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: 'date',
-      title: 'Datum des Events',
-      type: 'date', // Nur Datum reicht oft
-      options: {
-        dateFormat: 'DD.MM.YYYY',
-      }
-    },
-    {
+      title: 'Datum',
+      type: 'date',
+      initialValue: () => new Date().toISOString().split('T')[0],
+    }),
+    defineField({
       name: 'isInternal',
-      title: 'Nur intern sichtbar?',
+      title: 'Nur intern?',
       type: 'boolean',
       initialValue: false,
-      description: 'Wenn aktiviert, erscheint das Album nur im Mitgliederbereich.',
-    },
-    {
+    }),
+    defineField({
       name: 'coverImage',
-      title: 'Titelbild (Vorschau)',
+      title: 'Titelbild (Cover)',
       type: 'image',
       options: { hotspot: true },
-    },
-    {
+    }),
+    
+    // --- OPTIMIERUNG HIER ---
+    defineField({
       name: 'images',
       title: 'Fotos',
       type: 'array',
-      of: [{ type: 'image' }],
       options: {
-        layout: 'grid', // Schöne Raster-Ansicht im Editor
+        layout: 'grid', // Das Raster ist effizienter als eine Liste
       },
-    },
+      of: [
+        {
+          type: 'image',
+          options: { 
+            hotspot: true,
+            storeOriginalFilename: false, // Spart Speicher in Metadaten
+          },
+          // Wir verzichten auf komplexe Felder pro Bild, um den Editor schnell zu halten
+        },
+      ],
+    }),
   ],
-};
+});
