@@ -33,7 +33,7 @@ export default function NavbarInternal() {
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   
-  // INTELLIGENZ: Platz messen
+  // INTELLIGENZ: Platz messen für automatischen Umbruch
   const [forceMobile, setForceMobile] = useState(false);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const linksRef = useRef<HTMLDivElement>(null);
@@ -58,7 +58,7 @@ export default function NavbarInternal() {
         const containerWidth = navContainerRef.current.offsetWidth;
         const linksWidth = linksRef.current.scrollWidth;
         
-        // Wenn Links breiter sind als der Container (minus Puffer), umschalten
+        // Wenn Links breiter sind als der Container (minus Sicherheitspuffer), auf Mobile umschalten
         if (linksWidth > containerWidth - 30) {
           setForceMobile(true);
         } else {
@@ -67,11 +67,10 @@ export default function NavbarInternal() {
       }
     };
 
-    // Check beim Laden und bei Fensteränderung
     checkOverflow();
     window.addEventListener('resize', checkOverflow);
     return () => window.removeEventListener('resize', checkOverflow);
-  }, [canEdit]); // Neu prüfen wenn Admin-Rechte geladen sind (mehr Links)
+  }, [canEdit]); // Neu prüfen wenn Admin-Rechte geladen sind (mehr Links = mehr Platzbedarf)
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -94,7 +93,7 @@ export default function NavbarInternal() {
             </Link>
           </div>
 
-          {/* MITTLERER BEREICH (Dynamisch) */}
+          {/* MITTLERER BEREICH (Dynamisch: Desktop oder versteckt) */}
           <div className="flex-grow h-full flex items-center justify-center overflow-hidden" ref={navContainerRef}>
              <div 
                 ref={linksRef} 
@@ -115,7 +114,7 @@ export default function NavbarInternal() {
                   );
                 })}
 
-                {/* ADMIN DROPDOWN (Nur für Berechtigte) */}
+                {/* ADMIN DROPDOWN */}
                 {canEdit && (
                   <div className="relative group ml-2">
                     <button 
@@ -128,7 +127,7 @@ export default function NavbarInternal() {
                     </button>
                     
                     {/* Dropdown Menu */}
-                    <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl bg-slate-800 border border-slate-700 z-50 overflow-hidden transition-all ${showAdminDropdown ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0'}`}>
+                    <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl bg-slate-800 border border-slate-700 z-[60] overflow-hidden transition-all ${showAdminDropdown ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0'}`}>
                       {adminNavigation.map((item) => (
                         <Link 
                           key={item.name}
@@ -164,7 +163,7 @@ export default function NavbarInternal() {
         </div>
       </div>
       
-      {/* MOBILE MENÜ */}
+      {/* MOBILE MENÜ (Hamburger Ansicht) */}
       {isMobileMenuOpen && (
         <div className="border-t border-slate-700 bg-slate-900 shadow-xl">
            <div className="px-4 pt-4 pb-6 space-y-2 max-h-[80vh] overflow-y-auto">
