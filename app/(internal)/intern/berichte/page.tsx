@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { Member } from "../../../../types/supabase";
-// FIX: Activity entfernt, FaListUl hinzugefügt
 import { 
   FaPrint, 
   FaTrophy, 
@@ -19,13 +18,44 @@ import {
   FaListUl 
 } from "react-icons/fa";
 
-// Typen
-type MatchStats = { played: number; won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number; };
-type Jubilee = { member: Member; years: number; };
-type Scorer = { name: string; goals: number; };
-type Attendee = { name: string; count: number; };
-type MatchDetail = { date: Date; opponent: string; result: string; scorers: string[]; eventName?: string; };
-type BirthdayKid = { member: Member; age: number; date: Date };
+// Typen für die Statistik
+type MatchStats = {
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+};
+
+type Jubilee = {
+  member: Member;
+  years: number;
+};
+
+type Scorer = {
+  name: string;
+  goals: number;
+};
+
+type Attendee = {
+  name: string;
+  count: number;
+};
+
+type MatchDetail = { 
+  date: Date; 
+  opponent: string; 
+  result: string; 
+  scorers: string[]; 
+  eventName?: string; 
+};
+
+type BirthdayKid = { 
+  member: Member; 
+  age: number; 
+  date: Date 
+};
 
 export default function BerichtePage() {
   const currentYear = new Date().getFullYear();
@@ -104,7 +134,8 @@ export default function BerichtePage() {
             m.goal_scorers.forEach((s: any) => {
                scorerMap[s.member_id] = (scorerMap[s.member_id] || 0) + s.goals;
                const mem = memberList.find(x => x.id === s.member_id);
-               if(mem) matchScorers.push(`${mem.last_name} (${s.goals})`);
+               // FIX: Jetzt mit Vor- und Nachnamen
+               if(mem) matchScorers.push(`${mem.first_name} ${mem.last_name} (${s.goals})`);
             });
           }
           detailedMatches.push({ 
@@ -194,6 +225,8 @@ export default function BerichtePage() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 p-8 sm:p-12 rounded-xl shadow-xl print:shadow-none print:p-0 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 print:border-0 print:text-black print:bg-white">
+        
+        {/* Titelblatt */}
         <div className="text-center border-b-2 border-slate-900 dark:border-slate-200 pb-6 mb-8 print:border-black">
            <h2 className="text-4xl font-black uppercase tracking-widest mb-2">Saisonbericht {selectedYear}</h2>
            <p className="text-xl text-slate-500 dark:text-slate-400 print:text-slate-600">Garchinger Stadtkicker e.V.</p>
@@ -283,7 +316,12 @@ export default function BerichtePage() {
         {/* Notizen */}
         <div className="mt-12 break-inside-avoid">
             <h3 className="text-xl font-bold mb-4 border-b pb-2 flex gap-2"><FaStickyNote className="text-slate-400"/> Anmerkungen & Highlight</h3>
-            <textarea className="w-full p-4 border rounded-xl bg-yellow-50 dark:bg-slate-800 dark:border-slate-700 min-h-[150px] print:border-0 print:resize-none print:p-0 print:bg-transparent" placeholder="Hier können Highlights des Jahres, Anekdoten oder Berichtstexte notiert werden..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <textarea 
+                className="w-full p-4 border rounded-xl bg-yellow-50 dark:bg-slate-800 dark:border-slate-700 min-h-[150px] print:border-0 print:resize-none print:p-0 print:bg-transparent"
+                placeholder="Hier können Highlights des Jahres, Anekdoten oder Berichtstexte notiert werden..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+            />
             <div className="mt-2 text-right print:hidden"><button onClick={saveNotes} className="text-sm bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-3 py-1 rounded">Speichern</button></div>
         </div>
 
