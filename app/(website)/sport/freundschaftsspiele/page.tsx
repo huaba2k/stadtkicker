@@ -1,11 +1,5 @@
-import SportCategoryPage from "../../../../components/SportCategoryPage";
+import SportCategoryPage from "@/components/SportCategoryPage";
 
-export default function FreundschaftsspielePage() {
-  return (
-    <SportCategoryPage 
-      title="Freundschaftsspiele"
-      description="Unsere Partien gegen befreundete Vereine aus der Region."
-      category="freundschaftsspiel"
-    />
-  );
+export default function Page() {
+  return <SportCategoryPage title="Freundschaftsspiele" description="Testspiele und freundschaftliche Vergleiche." category="freundschaftsspiel" />;
 }

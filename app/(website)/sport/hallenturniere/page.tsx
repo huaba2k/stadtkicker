@@ -1,11 +1,5 @@
-import SportCategoryPage from "../../../../components/SportCategoryPage"; // Pfad anpassen
+import SportCategoryPage from "@/components/SportCategoryPage";
 
-export default function HallenPage() {
-  return (
-    <SportCategoryPage 
-      title="Hallenturniere"
-      description="Budenzauber und spannende Matches unterm Hallendach."
-      category="hallenturnier"
-    />
-  );
+export default function Page() {
+  return <SportCategoryPage title="Hallenturniere" description="Unsere Budenzauber-Events im Winter." category="hallenturnier" />;
 }
