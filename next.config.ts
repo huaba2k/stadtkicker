@@ -1,12 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // WICHTIG: Die Zeile output: "export" MUSS hier fehlen oder auskommentiert sein!
-  // Vercel betreibt die App dynamisch.
+  // Wichtig für Vercel: output: "export" muss fehlen, damit die App dynamisch läuft
   images: {
-    // Wenn du Bildoptimierung auf Vercel willst, kannst du 'unoptimized' entfernen
-    // Für Sanity ist es aber oft sicherer, es auf true zu lassen, da die Bilder eh schon optimiert sind
-    unoptimized: true, 
+    // unoptimized: true, // Kann für Vercel entfernt werden, aber lassen wir zur Sicherheit für Sanity
     remotePatterns: [
       { protocol: 'https', hostname: 'picsum.photos' },
       { protocol: 'https', hostname: 'cdn.sanity.io' },

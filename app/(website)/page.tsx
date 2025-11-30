@@ -5,6 +5,19 @@ import { client } from "../../sanity/client";
 import { urlFor } from "../../sanity/image";
 import WeatherWidget from "../../components/WeatherWidget";
 
+async function getData() {
+  const postsQuery = `*[_type == "post" && isInternal != true] | order(publishedAt desc)[0...3] { ... }`;
+  const albumQuery = `*[_type == "gallery" && isInternal != true] | order(date desc)[0] { ... }`;
+  
+  const [posts, album] = await Promise.all([
+    // NEU: Beide mit 60s Cache
+    client.fetch(postsQuery, {}, { next: { revalidate: 60 } }),
+    client.fetch(albumQuery, {}, { next: { revalidate: 60 } })
+  ]);
+  
+  return { posts, album };
+}
+
 // 1. Wir definieren, wie ein Artikel aussieht (TypeScript hilft uns hier)
 interface Post {
   _id: string;
