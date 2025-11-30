@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
-// Wir nutzen react-icons, da dieses Paket installiert ist
+// FIX: Import von react-icons statt lucide-react
 import { FaBars, FaTimes, FaChevronDown } from 'react-icons/fa';
 
 const navigation = [
@@ -39,7 +39,6 @@ export default function Navbar() {
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const pathname = usePathname();
 
-  // INTELLIGENZ: Platz messen
   const [forceMobile, setForceMobile] = useState(false);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const linksRef = useRef<HTMLDivElement>(null);
@@ -49,8 +48,6 @@ export default function Navbar() {
       if (navContainerRef.current && linksRef.current) {
         const containerWidth = navContainerRef.current.offsetWidth;
         const linksWidth = linksRef.current.scrollWidth;
-        
-        // Wenn Links breiter sind als der Container (minus Sicherheitspuffer), umschalten
         if (linksWidth > containerWidth - 20) {
           setForceMobile(true);
         } else {
@@ -58,8 +55,6 @@ export default function Navbar() {
         }
       }
     };
-    
-    // Check beim Laden und Resizen
     checkOverflow();
     window.addEventListener('resize', checkOverflow);
     return () => window.removeEventListener('resize', checkOverflow);
@@ -70,7 +65,6 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           
-          {/* LOGO */}
           <div className="flex-shrink-0 flex items-center gap-3 mr-4">
             <Link href="/" className="flex items-center gap-3">
               <div className="relative w-10 h-10">
@@ -82,8 +76,7 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* LINK CONTAINER (Messbereich) */}
-          <div className="flex-grow h-full flex items-center justify-center overflow-hidden" ref={navContainerRef}>
+          <div className="flex-grow h-full flex items-center justify-center relative" ref={navContainerRef}>
             <div 
                 ref={linksRef}
                 className={`flex items-center space-x-1 whitespace-nowrap transition-opacity ${forceMobile ? 'opacity-0 pointer-events-none absolute' : 'opacity-100'}`}
@@ -94,9 +87,10 @@ export default function Navbar() {
                     <>
                         <button className="text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1 group-hover:text-primary-600">
                         {item.name}
+                        {/* FIX: FaChevronDown */}
                         <FaChevronDown className="w-3 h-3 transition-transform group-hover:rotate-180" />
                         </button>
-                        <div className="absolute left-0 mt-0 w-56 rounded-xl shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 overflow-hidden">
+                        <div className="absolute left-0 mt-0 w-56 rounded-xl shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 overflow-hidden z-[60]">
                         <div className="py-1">
                             {item.children.map((subItem) => (
                             <Link key={subItem.name} href={subItem.href} className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-slate-700 hover:text-primary-600 transition-colors">
@@ -116,28 +110,19 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* RECHTS (Theme & Login & Burger) */}
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 ml-4">
               <ThemeToggle />
-              <Link 
-                href="/login" 
-                className="hidden md:inline-block bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm"
-              >
+              <Link href="/login" className="hidden md:inline-block bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm">
                 Intern
               </Link>
-
-              {/* HAMBURGER: Erscheint bei forceMobile ODER kleinem Screen */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className={`${forceMobile ? 'block' : 'md:hidden'} text-slate-600 dark:text-slate-300 hover:text-primary-600 p-2`}
-              >
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`${forceMobile ? 'block' : 'md:hidden'} text-slate-600 dark:text-slate-300 hover:text-primary-600 p-2`}>
+                {/* FIX: FaTimes und FaBars */}
                 {isMobileMenuOpen ? <FaTimes className="h-6 w-6" /> : <FaBars className="h-6 w-6" />}
               </button>
           </div>
         </div>
       </div>
 
-      {/* MOBILE MENU */}
       {isMobileMenuOpen && (
         <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-lg overflow-y-auto max-h-[80vh]">
           <div className="px-2 pt-2 pb-3 space-y-1">
@@ -145,10 +130,7 @@ export default function Navbar() {
               <div key={item.name}>
                 {item.children ? (
                   <>
-                    <button
-                      onClick={() => setOpenSubmenu(openSubmenu === item.name ? null : item.name)}
-                      className="w-full flex justify-between items-center px-3 py-3 rounded-md text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors"
-                    >
+                    <button onClick={() => setOpenSubmenu(openSubmenu === item.name ? null : item.name)} className="w-full flex justify-between items-center px-3 py-3 rounded-md text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors">
                       {item.name}
                       <FaChevronDown className={`w-3 h-3 transform transition-transform ${openSubmenu === item.name ? 'rotate-180' : ''}`} />
                     </button>
@@ -169,11 +151,8 @@ export default function Navbar() {
                 )}
               </div>
             ))}
-            
             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 px-2 pb-4">
-               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="block w-full text-center bg-primary-600 hover:bg-primary-700 text-white px-4 py-3 rounded-lg text-base font-medium shadow-sm">
-                Interner Bereich
-              </Link>
+               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="block w-full text-center bg-primary-600 hover:bg-primary-700 text-white px-4 py-3 rounded-lg text-base font-medium shadow-sm">Interner Bereich</Link>
             </div>
           </div>
         </div>
