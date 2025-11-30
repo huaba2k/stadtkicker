@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../../lib/supabase";
-import { Member, AppEvent } from "../../../../types/supabase";
+import { supabase } from "@/lib/supabase";
+import { Member, AppEvent } from "@/types/supabase";
 import { FaPlus, FaCopy, FaCalendarTimes, FaTimes, FaClipboardList, FaTrash, FaHistory, FaChevronDown, FaChevronUp, FaFutbol, FaEdit } from "react-icons/fa";
-import AttendanceModal from "../../../../components/AttendanceModal";
-import MatchResultModal from "../../../../components/MatchResultModal";
+import AttendanceModal from "@/components/AttendanceModal";
+import MatchResultModal from "@/components/MatchResultModal";
 
 type CalendarItem = {
   id: string;
@@ -52,9 +52,11 @@ export default function KalenderPage() {
   const [loading, setLoading] = useState(true);
   const [canEdit, setCanEdit] = useState(false);
 
+  // UI States
   const [showForm, setShowForm] = useState(false);
   const [showPast, setShowPast] = useState(false); 
   
+  // Modals
   const [showExceptionModal, setShowExceptionModal] = useState(false);
   const [selectedRecurringEvent, setSelectedRecurringEvent] = useState<AppEvent | null>(null);
   const [attendanceEvent, setAttendanceEvent] = useState<{id: string, title: string} | null>(null);
@@ -147,7 +149,7 @@ export default function KalenderPage() {
         recurrence: item.isRecurring ? 'weekly' : 'once', 
         isEditing: false, editId: null 
       }); 
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll-to-top entfernt, damit man an der Position bleibt
   };
 
   const startEdit = (eventId: string) => {
@@ -169,13 +171,12 @@ export default function KalenderPage() {
           editId: event.id
       });
       setShowForm(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll-to-top entfernt! Formular ist sticky und kommt zum User.
   };
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Datumskonstruktion für Zeitzonenkonsistenz
     const [hours, minutes] = newEvent.time.split(':').map(Number);
     const dateObj = new Date(newEvent.date); 
     dateObj.setHours(hours, minutes, 0, 0);
@@ -205,7 +206,7 @@ export default function KalenderPage() {
     else { 
         setShowForm(false); 
         setNewEvent({ title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", recurrence: "once", isEditing: false, editId: null });
-        fetchData(true); 
+        fetchData(true); // Hintergrund-Refresh ohne Springen
     }
   };
   
@@ -242,20 +243,12 @@ export default function KalenderPage() {
         <span className="text-xl font-bold leading-none">{item.date.getDate()}</span>
         <span className="text-xs uppercase font-bold">{item.date.toLocaleDateString('de-DE', { month: 'short', timeZone: 'Europe/Berlin' })}</span>
       </div>
-      <div className="flex-grow flex items-center justify-between">
-        <div className="min-w-0 flex-grow">
-          <h3 className="font-bold text-slate-900 dark:text-white text-lg truncate pr-2">{item.title}</h3>
-          {/* Flexibler Detailbereich: Bricht auf schmalen Screens sauber um */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-500 dark:text-slate-400">
-            <span className="capitalize">{formatDate(item.date)}</span>
-            <span className="hidden md:inline">•</span>
-            <span className={`font-semibold ${item.type === 'birthday' ? 'text-amber-700' : 'text-slate-600 dark:text-slate-300'}`}>
-               {item.type === 'birthday' ? 'Ganztägig' : formatTime(item.date) + ' Uhr'}
-            </span>
-
-            {item.subtitle && (<><span className="hidden md:inline">•</span><span className="truncate max-w-[200px]">{item.subtitle}</span></>)}
-            {item.isRecurring && <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">Serie</span>}
-          </div>
+      <div className="flex-grow min-w-0">
+        <h3 className="font-bold text-slate-900 dark:text-white text-lg truncate pr-2">{item.title}</h3>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <span className="capitalize">{formatDate(item.date)} • {item.type === 'birthday' ? 'Ganztägig' : formatTime(item.date) + ' Uhr'}</span>
+          {item.subtitle && (<><span className="hidden md:inline">•</span><span className="truncate max-w-[200px]">{item.subtitle}</span></>)}
+          {item.isRecurring && <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">Serie</span>}
         </div>
       </div>
       {canEdit && (
