@@ -55,7 +55,7 @@ export default function KontaktPage() {
             KONTAKT
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            Du hast Fragen zur Mitgliedschaft, zum Training oder möchtest uns unterstützen? 
+            Du hast Fragen zur Mitgliedschaft, zum Training, möchtest uns unterstützen oder zu einem Turnier einladen?
             Schreib uns einfach!
           </p>
         </div>
@@ -72,8 +72,8 @@ export default function KontaktPage() {
                          <FaMapMarkerAlt />
                       </div>
                       <div>
-                         <h4 className="font-bold text-slate-900 dark:text-white">Sportgelände</h4>
-                         <p className="text-slate-600 dark:text-slate-400">Schleißheimer Str. 40<br/>85748 Garching bei München</p>
+                         <h4 className="font-bold text-slate-900 dark:text-white">Sportgelände Garmin-Stadion am See</h4>
+                         <p className="text-slate-600 dark:text-slate-400">Am See 8<br/>85748 Garching bei München</p>
                       </div>
                    </div>
 
@@ -83,7 +83,7 @@ export default function KontaktPage() {
                       </div>
                       <div>
                          <h4 className="font-bold text-slate-900 dark:text-white">E-Mail</h4>
-                         <a href="mailto:info@garchinger-stadtkicker.de" className="text-primary-600 hover:underline">info@garchinger-stadtkicker.de</a>
+                         <a href="mailto:info@garchinger-stadtkicker.de" className="text-primary-600 hover:underline">kontakt@garchinger-stadtkicker.de</a>
                       </div>
                    </div>
                 </div>
