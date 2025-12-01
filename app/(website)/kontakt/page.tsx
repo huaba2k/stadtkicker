@@ -12,7 +12,7 @@ export default function KontaktPage() {
     const formData = new FormData(e.currentTarget);
     
     // --- DEIN KEY ---
-    formData.append("access_key", "DEIN-ACCESS-KEY-HIER-EINFUEGEN"); 
+    formData.append("access_key", "3aa9293e-f0be-4973-a369-f55f9b4a18fb"); 
 
     const object = Object.fromEntries(formData);
     const json = JSON.stringify(object);
@@ -96,7 +96,7 @@ export default function KontaktPage() {
 
             {status === "error" && (
               <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm text-center border border-red-100 dark:border-red-800">
-                Es gab einen Fehler beim Senden. Bitte versuche es später erneut oder schreibe direkt an info@garchinger-stadtkicker.de
+                Es gab einen Fehler beim Senden. Bitte versuche es später erneut oder schreibe direkt an kontakt@garchinger-stadtkicker.de
               </div>
             )}
 
