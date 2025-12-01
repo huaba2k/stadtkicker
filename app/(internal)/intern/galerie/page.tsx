@@ -6,7 +6,7 @@ import { urlFor } from "@/sanity/image";
 import { FaImages } from "react-icons/fa";
 
 // Daten laden (ISR: Cache für 60 Sekunden)
-// KEIN Filter auf isInternal, damit Mitglieder ALLES sehen
+// KEIN Filter auf isInternal, damit Mitglieder ALLES sehen (auch öffentliche Alben)
 async function getInternalGalleries() {
   const query = `*[_type == "gallery"] | order(date desc) {
     _id,
@@ -45,10 +45,9 @@ export default async function InternalGaleriePage() {
         {galleries.map((album: any) => (
           <Link 
             key={album._id} 
-            // Wir verlinken auf die öffentliche Detail-Ansicht. 
-            // WICHTIG: Falls du interne Alben hast, muss die Detailseite prüfen, ob der User Zugriff hat,
-            // oder du erstellst eine Kopie der Detailseite unter /intern/galerie/[slug]
-            href={`/galerie/${album.slug.current}`}
+            // WICHTIG: Link führt zur INTERNEN Detailansicht!
+            // Damit werden auch interne Alben korrekt angezeigt ohne 404.
+            href={`/intern/galerie/${album.slug.current}`}
             className="group flex flex-col bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 dark:border-slate-700"
           >
             <div className="relative h-56 bg-slate-200 dark:bg-slate-700 overflow-hidden">
