@@ -1,289 +1,386 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { Member, AppEvent } from "@/types/supabase";
-import { FaPlus, FaCopy, FaCalendarTimes, FaTimes, FaClipboardList, FaTrash, FaHistory, FaChevronDown, FaChevronUp, FaFutbol, FaEdit } from "react-icons/fa";
-import AttendanceModal from "@/components/AttendanceModal";
-import MatchResultModal from "@/components/MatchResultModal";
+import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase"; // Alias nutzen
+import { Member } from "@/types/supabase"; // Alias nutzen
+import { FaUserPlus, FaEdit, FaTrash, FaSave, FaTimes, FaUsers, FaChartBar, FaFilePdf, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserSlash, FaChevronDown, FaChevronUp, FaUserTag, FaIdCard } from "react-icons/fa";
 
-type CalendarItem = {
-  id: string;
-  originalEventId: string;
-  title: string;
-  date: Date;
-  type: 'birthday' | 'training' | 'match' | 'party' | 'general' | 'jhv' | 'schafkopf' | 'trip';
-  subtitle?: string;
-  isRecurring: boolean;
+type MemberFormState = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  birth_date: string;
+  role: "member" | "coach" | "board" | "admin";
+  status: "active" | "passive" | "left" | "guest";
+  city_of_residence: string;
+  joined_at: string;
+  left_at: string;
+  isEditing: boolean;
+  editId: string | null;
 };
 
-const calculateRecurrences = (event: AppEvent, items: CalendarItem[]) => {
-  if (event.recurrence_type !== 'weekly' || !event.is_recurring) return;
-  const startDate = new Date(event.start_time);
-  const currentYear = new Date().getFullYear();
-  const nextYear = currentYear + 1;
-  let date = new Date(startDate);
-  date.setDate(date.getDate() + 7);
-  const exceptions = event.recurrence_exceptions || [];
-  while (date.getFullYear() <= nextYear) {
-    const dateString = date.toISOString().split('T')[0];
-    if (!exceptions.includes(dateString)) {
-      items.push({
-        id: event.id + date.getTime(),
-        originalEventId: event.id,
-        title: event.title,
-        date: new Date(date),
-        type: event.category,
-        subtitle: event.location ? `@ ${event.location}` : undefined,
-        isRecurring: true,
-      });
-    }
-    date.setDate(date.getDate() + 7);
-  }
+const initialNewMember: MemberFormState = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  birth_date: "",
+  joined_at: "",
+  left_at: "",
+  role: "member",
+  status: "active",
+  city_of_residence: "", 
+  isEditing: false,
+  editId: null,
 };
 
-export default function KalenderPage() {
-  const [items, setItems] = useState<CalendarItem[]>([]);
-  const [eventsData, setEventsData] = useState<AppEvent[]>([]);
+type AttendanceStats = {
+  total: number;
+  active: number;
+  passive: number;
+  absent: number;
+  helper: number;
+};
+
+export default function MitgliederPage() {
+  const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Rechte
   const [canEdit, setCanEdit] = useState(false);
+  const [hasReadAccess, setHasReadAccess] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
+
   const [showForm, setShowForm] = useState(false);
-  const [showPast, setShowPast] = useState(false); 
-  const [showExceptionModal, setShowExceptionModal] = useState(false);
-  const [selectedRecurringEvent, setSelectedRecurringEvent] = useState<AppEvent | null>(null);
-  const [attendanceEvent, setAttendanceEvent] = useState<{id: string, title: string} | null>(null);
-  const [matchEvent, setMatchEvent] = useState<{id: string, title: string} | null>(null);
+  const [newMember, setNewMember] = useState<MemberFormState>(initialNewMember);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  
+  const [showLeftMembers, setShowLeftMembers] = useState(false);
+  const [showGuests, setShowGuests] = useState(true);
 
-  const [newEvent, setNewEvent] = useState({
-    title: "", date: "", time: "19:00", 
-    category: "general" as AppEvent['category'], 
-    location: "Vereinsheim",
-    recurrence: "once" as "once" | "weekly", isEditing: false, editId: null as string | null,
-  });
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'last_name', direction: 'asc' });
 
-  const fetchData = async (isBackgroundRefresh = false) => {
-    if (!isBackgroundRefresh) setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.email) {
-      const { data: member } = await supabase.from("members").select("role").eq("email", user.email).single();
-      if (member && (member.role === 'admin' || member.role === 'board')) setCanEdit(true);
-    }
-    const { data: events } = await supabase.from("events").select("*").order("start_time", { ascending: true });
-    setEventsData(events as AppEvent[]);
-    const { data: members } = await supabase.from("members").select("id, first_name, last_name, birth_date, is_hidden, status").eq('is_hidden', false).neq('status', 'left');
-    let allItems: CalendarItem[] = [];
-    if (events) {
-      events.forEach((e: AppEvent) => {
-        allItems.push({
-          id: e.id, originalEventId: e.id, title: e.title, date: new Date(e.start_time),
-          type: e.category, subtitle: e.location ? `@ ${e.location}` : undefined,
-          isRecurring: !!e.is_recurring,
-        });
-        calculateRecurrences(e, allItems);
-      });
-    }
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    if (members) {
-      members.forEach((m: any) => {
-        if (!m.birth_date) return;
-        const bday = new Date(m.birth_date);
-        for (let y = currentYear; y <= currentYear + 1; y++) {
-             let nextBday = new Date(y, bday.getMonth(), bday.getDate());
-             const age = nextBday.getFullYear() - bday.getFullYear();
-             if (nextBday >= new Date(today.setHours(0,0,0,0))) {
-                 allItems.push({
-                    id: `bday-${m.id}-${y}`, originalEventId: `bday-${m.id}-${y}`,
-                    title: `Geburtstag: ${m.first_name} ${m.last_name}`, date: nextBday,
-                    type: 'birthday', subtitle: `wird ${age} Jahre alt 🎉`, isRecurring: true,
-                 });
-             }
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [yearlyAttendance, setYearlyAttendance] = useState<Record<string, AttendanceStats>>({});
+
+  // --- STARTUP ---
+  useEffect(() => {
+    const checkRights = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.email) {
+        const { data: member } = await supabase.from("members").select("role").eq("email", user.email).maybeSingle();
+        if (member && ['admin', 'board', 'coach'].includes(member.role)) {
+          setHasReadAccess(true);
+          if (member.role === 'admin' || member.role === 'board') setCanEdit(true);
+          fetchMembers();
         }
-      });
-    }
-    setItems(allItems.sort((a, b) => a.date.getTime() - b.date.getTime()));
+      }
+      setAuthChecking(false);
+    };
+    checkRights();
+  }, []);
+
+  useEffect(() => {
+    if (hasReadAccess) fetchYearlyStats(selectedYear);
+  }, [selectedYear, hasReadAccess]);
+
+  // --- DATEN LADEN ---
+  const fetchMembers = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("members").select("*").eq("is_hidden", false).order("last_name", { ascending: true });
+    if (error) showNotification("Fehler: " + error.message, 'error');
+    else setMembers(data as Member[]);
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(false); }, []);
+  const fetchYearlyStats = async (year: number) => {
+    const { data, error } = await supabase.rpc('get_yearly_stats_v2', { year_input: year });
+    if (error) { console.error(error); return; }
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const upcomingItems = items.filter(i => i.date >= todayStart);
-  const pastItems = items.filter(i => i.date < todayStart).sort((a, b) => b.date.getTime() - a.date.getTime());
-
-  const startAdd = () => { setShowForm(true); setNewEvent({ title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", recurrence: "once", isEditing: false, editId: null }); };
-  const startCopy = (item: CalendarItem) => { setShowForm(true); setNewEvent({ title: item.title, date: "", time: item.date.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit', timeZone: 'Europe/Berlin'}), category: item.type as any, location: item.subtitle?.startsWith('@') ? item.subtitle.slice(2).trim() : "", recurrence: item.isRecurring ? 'weekly' : 'once', isEditing: false, editId: null }); };
-  const startEdit = (eventId: string) => {
-      const event = eventsData.find(e => e.id === eventId);
-      if (!event) return;
-      const d = new Date(event.start_time);
-      setNewEvent({
-          title: event.title, date: d.toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' }),
-          time: d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }),
-          category: event.category || 'general', location: event.location || '',
-          recurrence: event.recurrence_type === 'weekly' ? 'weekly' : 'once', isEditing: true, editId: event.id
-      });
-      setShowForm(true);
+    const statsMap: Record<string, AttendanceStats> = {};
+    if (data) {
+        data.forEach((row: any) => {
+            statsMap[row.member_id] = {
+                active: Number(row.active_count),
+                passive: Number(row.passive_count),
+                helper: Number(row.helper_count),
+                absent: Number(row.absent_count),
+                total: Number(row.total_count)
+            };
+        });
+    }
+    setYearlyAttendance(statsMap);
   };
 
-  const handleSaveEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const [hours, minutes] = newEvent.time.split(':').map(Number);
-    const dateObj = new Date(newEvent.date); 
-    dateObj.setHours(hours, minutes, 0, 0);
-    const isWeekly = newEvent.recurrence === 'weekly';
-    const payload = { title: newEvent.title, start_time: dateObj.toISOString(), category: newEvent.category, location: newEvent.location, recurrence_type: isWeekly ? 'weekly' : null, is_recurring: isWeekly };
-    let error;
-    if (newEvent.isEditing && newEvent.editId) { const res = await supabase.from("events").update(payload).eq("id", newEvent.editId); error = res.error; } 
-    else { const res = await supabase.from("events").insert([payload]); error = res.error; }
-    if (error) alert(error.message); else { setShowForm(false); setNewEvent({ title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", recurrence: "once", isEditing: false, editId: null }); fetchData(true); }
+  // --- FILTERN & SPLITTEN ---
+  const { currentMembers, guestMembers, leftMembers } = useMemo(() => {
+    let filtered = members.filter(member =>
+      member.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.city_of_residence || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    filtered.sort((a, b) => {
+      let valA: any = '', valB: any = '';
+      if (sortConfig.key.startsWith('attendance_')) {
+        const type = sortConfig.key.split('_')[1] as keyof AttendanceStats;
+        valA = yearlyAttendance[a.id]?.[type] || 0;
+        valB = yearlyAttendance[b.id]?.[type] || 0;
+      } else {
+        valA = (a as any)[sortConfig.key] || "";
+        valB = (b as any)[sortConfig.key] || "";
+      }
+      let result = 0;
+      if (typeof valA === 'string') result = valA.localeCompare(valB, 'de', { sensitivity: 'base' });
+      else result = valA - valB;
+      if (sortConfig.direction === 'desc') result *= -1;
+      if (result === 0) return a.last_name.localeCompare(b.last_name);
+      return result;
+    });
+
+    // Aufteilung
+    const current = filtered.filter(m => m.status === 'active' || m.status === 'passive' || (!m.status && m.status !== 'guest'));
+    const guests = filtered.filter(m => m.status === 'guest');
+    const left = filtered.filter(m => m.status === 'left');
+
+    return { currentMembers: current, guestMembers: guests, leftMembers: left };
+  }, [members, searchTerm, sortConfig, yearlyAttendance]);
+
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
   };
   
-  const handleDeleteEvent = async (eventId: string) => { if(!confirm("Termin wirklich löschen?")) return; setItems(prev => prev.filter(i => i.originalEventId !== eventId)); const { error } = await supabase.from("events").delete().eq("id", eventId); if(error) { alert(error.message); fetchData(true); } else { fetchData(true); } };
-  const handleOpenExceptionModal = (eventId: string) => { const event = eventsData.find(e => e.id === eventId); if (event) { setSelectedRecurringEvent(event); setShowExceptionModal(true); } };
-  const handleAddException = async (dateString: string) => { if (!selectedRecurringEvent) return; const newExceptions = [...(selectedRecurringEvent.recurrence_exceptions || []), dateString]; await supabase.from("events").update({ recurrence_exceptions: newExceptions }).eq("id", selectedRecurringEvent.id); setSelectedRecurringEvent({...selectedRecurringEvent, recurrence_exceptions: newExceptions}); fetchData(true); };
-  const handleRemoveException = async (dateString: string) => { if (!selectedRecurringEvent) return; const newExceptions = (selectedRecurringEvent.recurrence_exceptions || []).filter(ex => ex !== dateString); await supabase.from("events").update({ recurrence_exceptions: newExceptions }).eq("id", selectedRecurringEvent.id); setSelectedRecurringEvent({...selectedRecurringEvent, recurrence_exceptions: newExceptions}); fetchData(true); };
+  const handleExportPDF = () => window.print();
   
-  const formatDate = (date: Date) => date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
-  const formatTime = (date: Date) => date.toLocaleTimeString('de-DE', { hour: '2-digit', minute:'2-digit', timeZone: 'Europe/Berlin' });
-  const getCategoryColor = (type: string) => { switch (type) { case 'birthday': return 'border-amber-500 bg-amber-100 text-amber-700'; case 'match': return 'border-green-500 bg-green-100 text-green-700'; case 'training': return 'border-blue-500 bg-blue-100 text-blue-700'; case 'jhv': return 'border-red-500 bg-red-100 text-red-700'; case 'schafkopf': return 'border-emerald-600 bg-emerald-100 text-emerald-800'; case 'trip': return 'border-indigo-500 bg-indigo-100 text-indigo-700'; case 'party': return 'border-purple-500 bg-purple-100 text-purple-700'; default: return 'border-slate-300 bg-slate-100 text-slate-600'; } };
+  const statsHeader = useMemo(() => {
+    const realMembers = members.filter(m => m.status === 'active' || m.status === 'passive');
+    const totalMembers = realMembers.length;
+    const garchingMembers = realMembers.filter(m => m.city_of_residence?.toLowerCase().includes('garching')).length;
+    const garchingPercentage = totalMembers > 0 ? ((garchingMembers / totalMembers) * 100).toFixed(1).replace('.', ',') : '0';
+    const guestCount = members.filter(m => m.status === 'guest').length;
 
-  // --- OPTIMIERTER MOBILE RENDERER ---
-  const renderItem = (item: CalendarItem, isPast: boolean = false) => (
-    <div key={item.id} className={`flex flex-col p-3 sm:p-4 rounded-xl border bg-white dark:bg-slate-800 transition-all hover:shadow-md group gap-3 ${isPast ? 'opacity-60 grayscale-[50%]' : ''}`}>
-      
-      {/* OBERER TEIL: Datum & Inhalt */}
-      <div className="flex items-start gap-3 sm:gap-4">
-          {/* Datum: Kompakter auf Mobile */}
-          <div className={`flex flex-col items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex-shrink-0 border-2 ${getCategoryColor(item.type)}`}>
-            <span className="text-lg sm:text-xl font-bold leading-none">{item.date.getDate()}</span>
-            <span className="text-[10px] sm:text-xs uppercase font-bold">{item.date.toLocaleDateString('de-DE', { month: 'short', timeZone: 'Europe/Berlin' })}</span>
-          </div>
+    return { totalMembers, garchingMembers, garchingPercentage, guestCount };
+  }, [members]);
 
-          <div className="flex-grow min-w-0 pt-0.5">
-            {/* Titel: Truncate verhindert Overflow */}
-            <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-lg leading-tight mb-1 truncate pr-1">
-              {item.title}
+  // --- CRUD ---
+  const startAdd = () => { setShowForm(true); setNewMember(initialNewMember); };
+  const startEdit = (member: Member) => {
+    setShowForm(true);
+    setNewMember({
+      first_name: member.first_name, last_name: member.last_name, email: member.email || "",
+      phone: member.phone || "", 
+      birth_date: member.birth_date ? new Date(member.birth_date).toISOString().split('T')[0] : "",
+      joined_at: member.joined_at ? new Date(member.joined_at).toISOString().split('T')[0] : "",
+      left_at: member.left_at ? new Date(member.left_at).toISOString().split('T')[0] : "",
+      role: member.role, 
+      status: (member.status as any) || "active", 
+      city_of_residence: member.city_of_residence || "",
+      isEditing: true, editId: member.id,
+    });
+  };
+
+  const handleSaveMember = async (e: React.FormEvent) => {
+    e.preventDefault(); setLoading(true);
+    const dataToSave = {
+      first_name: newMember.first_name, last_name: newMember.last_name, email: newMember.email || null,
+      phone: newMember.phone || null, birth_date: newMember.birth_date || null, 
+      joined_at: newMember.joined_at || null, left_at: newMember.left_at || null,
+      role: newMember.role, status: newMember.status, city_of_residence: newMember.city_of_residence || null, 
+    };
+    let error = null;
+    if (newMember.isEditing && newMember.editId) {
+      const result = await supabase.from("members").update(dataToSave).eq("id", newMember.editId);
+      error = result.error;
+    } else {
+      const result = await supabase.from("members").insert([dataToSave]);
+      error = result.error;
+    }
+    if (error) showNotification(`Fehler: ${error.message}`, 'error');
+    else { showNotification(`Gespeichert.`, 'success'); setShowForm(false); setNewMember(initialNewMember); fetchMembers(); }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Wirklich löschen?")) {
+      setLoading(true);
+      const { error } = await supabase.from("members").delete().eq("id", id);
+      if (error) showNotification("Fehler: " + error.message, 'error');
+      else { showNotification("Gelöscht.", 'success'); fetchMembers(); }
+      setLoading(false);
+    }
+  };
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+    setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig.key !== columnKey) return <FaSort className="inline ml-1 text-slate-300" />;
+    return sortConfig.direction === 'asc' ? <FaSortUp className="inline ml-1 text-primary-500" /> : <FaSortDown className="inline ml-1 text-primary-500" />;
+  };
+
+  // --- RENDER TABLE COMPONENT (Mobile Safe) ---
+  const renderTable = (data: Member[], title: string, icon: React.ReactNode, colorClass: string) => (
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden mb-8">
+        <div className={`px-6 py-4 border-b border-slate-100 dark:border-slate-700 ${colorClass}`}>
+            <h3 className="font-bold text-slate-700 dark:text-slate-300 uppercase text-xs tracking-wider flex items-center gap-2">
+                {icon} {title} ({data.length})
             </h3>
-            
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-               <span className="whitespace-nowrap">
-                  {formatDate(item.date)}
-                  {item.type !== 'birthday' && <span className="font-semibold ml-1">• {formatTime(item.date)} Uhr</span>}
-               </span>
-               
-               {item.subtitle && (
-                 <span className="truncate max-w-[200px] block opacity-80">
-                    @ {item.subtitle}
-                 </span>
-               )}
-               
-               {item.isRecurring && <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded border dark:border-slate-600">Serie</span>}
-            </div>
-          </div>
-      </div>
-
-      {/* UNTERER TEIL: Buttons (Volle Breite auf Mobile) */}
-      {canEdit && (
-        <div className="flex items-center justify-between sm:justify-end gap-2 pt-3 mt-1 border-t border-slate-100 dark:border-slate-700 w-full">
-          
-          {/* Linke Gruppe: Bearbeiten & Ausnahmen */}
-          <div className="flex gap-1">
-             {item.type !== 'birthday' && item.id === item.originalEventId && <button onClick={() => startEdit(item.originalEventId)} className="p-2 bg-slate-50 dark:bg-slate-700 text-primary-600 rounded hover:bg-primary-50 transition-colors" title="Bearbeiten"><FaEdit size={16}/></button>}
-             {!isPast && item.isRecurring && item.id === item.originalEventId && item.type !== 'birthday' && <button onClick={() => handleOpenExceptionModal(item.originalEventId)} className="p-2 bg-slate-50 dark:bg-slate-700 text-amber-500 hover:bg-amber-50 rounded" title="Ausnahmen"><FaCalendarTimes size={16}/></button>}
-          </div>
-
-          {/* Rechte Gruppe: Aktionen & Löschen */}
-          <div className="flex gap-1">
-             {item.type !== 'birthday' && item.id === item.originalEventId && <button onClick={() => startCopy(item)} className="p-2 bg-slate-50 dark:bg-slate-700 text-slate-500 hover:bg-slate-100 rounded" title="Kopieren"><FaCopy size={16}/></button>}
-             
-             {item.type !== 'birthday' && <button onClick={() => setAttendanceEvent({ id: item.originalEventId, title: item.title })} className="p-2 bg-slate-50 dark:bg-slate-700 text-green-600 hover:bg-green-50 rounded" title="Anwesenheit"><FaClipboardList size={16}/></button>}
-             
-             {(item.type === 'match' || item.type === 'schafkopf') && <button onClick={() => setMatchEvent({ id: item.originalEventId, title: item.title })} className="p-2 bg-slate-50 dark:bg-slate-700 text-blue-500 hover:bg-blue-50 rounded" title="Ergebnis"><FaFutbol size={16}/></button>}
-             
-             {item.type !== 'birthday' && item.id === item.originalEventId && <button onClick={() => handleDeleteEvent(item.originalEventId)} className="p-2 bg-slate-50 dark:bg-slate-700 text-red-400 hover:bg-red-50 rounded" title="Löschen"><FaTrash size={16}/></button>}
-          </div>
-
         </div>
-      )}
+        {/* FIX: overflow-x-auto hier sorgt für Scrollbarkeit */}
+        <div className="overflow-x-auto w-full">
+            <table className="min-w-[800px] w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th onClick={() => requestSort('last_name')} className="px-6 py-3 text-left font-bold cursor-pointer hover:text-primary-600">Name <SortIcon columnKey="last_name"/></th>
+                  <th onClick={() => requestSort('status')} className="px-6 py-3 text-left font-bold cursor-pointer hover:text-primary-600">Status <SortIcon columnKey="status"/></th>
+                  <th onClick={() => requestSort('city_of_residence')} className="px-6 py-3 text-left font-bold cursor-pointer hover:text-primary-600">Ort <SortIcon columnKey="city_of_residence"/></th>
+                  <th onClick={() => requestSort('attendance_total')} className="px-6 py-3 text-center font-bold cursor-pointer bg-slate-100 dark:bg-slate-800 hover:text-primary-600">Ges. <SortIcon columnKey="attendance_total"/></th>
+                  <th onClick={() => requestSort('attendance_active')} className="px-6 py-3 text-center font-bold cursor-pointer bg-green-50 dark:bg-green-900/10 hover:text-green-600">Akt.</th>
+                  <th onClick={() => requestSort('attendance_passive')} className="px-6 py-3 text-center font-bold cursor-pointer text-slate-400 hover:text-amber-600">Pass.</th>
+                  <th onClick={() => requestSort('attendance_helper')} className="px-6 py-3 text-center font-bold cursor-pointer text-purple-600 hover:text-purple-800">Helf.</th>
+                  <th onClick={() => requestSort('attendance_absent')} className="px-6 py-3 text-center font-bold cursor-pointer text-red-400 hover:text-red-600">Abw.</th>
+                  <th className="px-6 py-3 text-right font-bold print:hidden sticky right-0 bg-white dark:bg-slate-800">Aktion</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+                {data.map(m => {
+                    const stats = yearlyAttendance[m.id] || { active: 0, passive: 0, absent: 0, helper: 0, total: 0 };
+                    const leftYear = m.left_at ? new Date(m.left_at).getFullYear() : null;
+                    const isHistoric = leftYear && leftYear < selectedYear;
+
+                    return (
+                    <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
+                        <Link href={`/intern/mitglieder/${m.id}`} className="hover:text-primary-600 hover:underline transition-colors">
+                          {m.last_name}, {m.first_name}
+                        </Link>
+                        <div className="flex gap-2 text-[10px]">
+                            {m.role !== 'member' && <span className="text-slate-500 uppercase">{m.role === 'board' ? 'Vorstand' : m.role}</span>}
+                            {m.status === 'guest' && <span className="text-blue-500 font-bold">Gast</span>}
+                            {m.left_at && <span className="text-red-400">Ausgetreten: {leftYear}</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                            m.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 
+                            m.status === 'guest' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            m.status === 'left' ? 'bg-red-50 text-red-700 border-red-200' : 
+                            'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}>
+                          {m.status === 'active' ? 'Aktiv' : m.status === 'guest' ? 'Gast' : m.status === 'left' ? 'Ausgeschieden' : 'Passiv'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 text-sm">{m.city_of_residence}</td>
+                      
+                      <td className={`px-6 py-4 text-center font-bold ${isHistoric ? 'text-gray-300' : 'bg-slate-100/50 dark:bg-slate-800/50'}`}>{isHistoric ? '-' : stats.total}</td>
+                      <td className={`px-6 py-4 text-center font-medium text-green-600 ${isHistoric ? 'text-gray-300' : ''}`}>{isHistoric ? '-' : stats.active}</td>
+                      <td className={`px-6 py-4 text-center text-amber-600 ${isHistoric ? 'text-gray-300' : ''}`}>{isHistoric ? '-' : stats.passive}</td>
+                      <td className={`px-6 py-4 text-center text-purple-600 ${isHistoric ? 'text-gray-300' : ''}`}>{isHistoric ? '-' : stats.helper}</td>
+                      <td className={`px-6 py-4 text-center text-red-500 ${isHistoric ? 'text-gray-300' : ''}`}>{isHistoric ? '-' : stats.absent}</td>
+                      
+                      {/* Sticky Action Column */}
+                      <td className="px-6 py-4 text-right space-x-2 print:hidden sticky right-0 bg-white dark:bg-slate-800 border-l dark:border-slate-700">
+                        {canEdit && <><button onClick={() => startEdit(m)} className="text-primary-600 hover:text-primary-900 p-1"><FaEdit /></button><button onClick={() => handleDelete(m.id)} className="text-red-600 hover:text-red-900 p-1"><FaTrash /></button></>}
+                      </td>
+                    </tr>
+                )})}
+              </tbody>
+            </table>
+        </div>
     </div>
   );
 
+  if (authChecking) return <div className="min-h-screen flex items-center justify-center dark:text-white">Prüfe Berechtigungen...</div>;
+  if (!hasReadAccess) return <div className="p-10 text-center">Zugriff verweigert.</div>;
+
   return (
-    <div className="max-w-4xl mx-auto p-3 sm:p-8">
-      <div className="flex justify-between items-center mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">Terminkalender</h1>
-        {canEdit && (
-          <button onClick={startAdd} className="bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 sm:px-4 rounded-lg text-sm font-medium flex items-center gap-2">
-            <FaPlus /> <span className="hidden sm:inline">Termin eintragen</span><span className="sm:hidden">Neu</span>
-          </button>
-        )}
-      </div>
-
-      {showForm && canEdit && (
-        <div className="mb-8 bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl sticky top-20 z-40">
-          <div className="flex justify-between mb-4">
-             <h3 className="font-bold text-slate-900 dark:text-white">{newEvent.isEditing ? "Bearbeiten" : "Neuer Termin"}</h3>
-             <button onClick={() => { setShowForm(false); setNewEvent({ title: "", date: "", time: "19:00", category: "general", location: "Vereinsheim", recurrence: "once", isEditing: false, editId: null }); }}><FaTimes/></button>
-          </div>
-          <form onSubmit={handleSaveEvent} className="grid grid-cols-1 gap-3 sm:gap-4">
-            <input required placeholder="Titel" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 w-full" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
-            
-            <div className="grid grid-cols-2 gap-3">
-                <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 w-full" value={newEvent.category} onChange={e => setNewEvent({...newEvent, category: e.target.value as any})}>
-                    <option value="training">Training</option><option value="match">Spiel/Turnier</option><option value="jhv">JHV</option><option value="schafkopf">Schafkopf</option><option value="trip">Ausflug</option><option value="party">Feier</option><option value="general">Sonstiges</option>
-                </select>
-                <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 w-full" value={newEvent.recurrence} onChange={e => setNewEvent({...newEvent, recurrence: e.target.value as any})}><option value="once">Einmalig</option><option value="weekly">Wöchentlich</option></select>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-                <input required type="date" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 w-full" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} />
-                <input required type="time" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 w-full" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})} />
-            </div>
-
-            <input placeholder="Ort" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 w-full" value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
-            <div className="flex justify-end gap-2 mt-2"><button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-500 text-sm">Abbrechen</button><button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-bold">Speichern</button></div>
-          </form>
-        </div>
-      )}
-
-      <div className="space-y-3 mb-12">
-        <h2 className="text-sm sm:text-lg font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 pb-2 mb-4 flex items-center gap-2">
-           <FaPlus className="w-3 h-3"/> Aktuell & Demnächst
-        </h2>
-        {upcomingItems.length === 0 ? <div className="text-center p-8 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-500">Keine Termine.</div> : upcomingItems.map(item => renderItem(item, false))}
-      </div>
-
-      {!loading && pastItems.length > 0 && (
-          <div className="mt-12 border-t border-slate-200 dark:border-slate-700 pt-8">
-              <button onClick={() => setShowPast(!showPast)} className="flex items-center gap-2 mx-auto text-slate-500 hover:text-primary-600 font-medium mb-6 px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-800 text-sm">
-                 <FaHistory /> {showPast ? "Archiv ausblenden" : `Vergangene (${pastItems.length})`} {showPast ? <FaChevronUp/> : <FaChevronDown/>}
-              </button>
-              {showPast && <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">{pastItems.map(item => renderItem(item, true))}</div>}
-          </div>
-      )}
+    <div className="max-w-full mx-auto p-4 sm:p-8 print:p-0">
       
-      {showExceptionModal && selectedRecurringEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-           <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-full max-w-md">
-               <h3 className="text-xl font-bold mb-4">Ausnahmen verwalten</h3>
-               <p className="text-sm text-slate-500 mb-4">Termin fällt aus am:</p>
-               <form onSubmit={(e) => {e.preventDefault(); const el = (e.target as any).elements.exception_date; if(el.value) handleAddException(el.value);}} className="flex gap-2 mb-4">
-                  <input type="date" name="exception_date" required className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 flex-grow" />
-                  <button className="bg-red-600 text-white px-4 rounded font-bold">Ausfallen lassen</button>
-               </form>
-               <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {(selectedRecurringEvent.recurrence_exceptions || []).map(d => (
-                      <div key={d} className="flex justify-between items-center bg-slate-100 dark:bg-slate-700 p-2 rounded text-sm"><span>{new Date(d).toLocaleDateString()}</span><button onClick={() => handleRemoveException(d)} className="text-red-500"><FaTimes/></button></div>
-                  ))}
-               </div>
-               <button onClick={() => setShowExceptionModal(false)} className="mt-4 w-full p-2 border rounded text-sm">Schließen</button>
-           </div>
+      {/* HEADER & STATS */}
+      <div className="print:hidden">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Mitgliederverwaltung</h1>
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+               <span className="text-xs font-bold text-slate-500 px-2 uppercase">Statistik-Jahr:</span>
+               <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white font-bold rounded px-2 py-1 focus:outline-none">{[currentYear, currentYear-1, currentYear-2].map(y => <option key={y} value={y}>{y}</option>)}</select>
+            </div>
         </div>
-      )}
-      {attendanceEvent && <AttendanceModal eventId={attendanceEvent.id} eventTitle={attendanceEvent.title} onClose={() => setAttendanceEvent(null)} />}
-      {matchEvent && <MatchResultModal eventId={matchEvent.id} eventTitle={matchEvent.title} onClose={() => setMatchEvent(null)} />}
+        
+        {notification && <div className={`p-3 mb-4 rounded-lg text-sm font-medium ${notification.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{notification.message}</div>}
+        
+        <div className="mb-8 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center"><p className="text-2xl font-bold text-primary-600">{statsHeader.totalMembers}</p><p className="text-xs text-slate-500 uppercase">Mitglieder</p></div>
+            <div className="text-center"><p className="text-2xl font-bold text-green-600">{statsHeader.garchingMembers}</p><p className="text-xs text-slate-500 uppercase">aus Garching</p></div>
+            <div className="text-center"><p className="text-2xl font-bold text-blue-500">{statsHeader.guestCount}</p><p className="text-xs text-slate-500 uppercase">Registrierte Gäste</p></div>
+            <div className="text-center flex flex-col items-center justify-center"><button onClick={handleExportPDF} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm font-medium"><FaFilePdf /> PDF Export</button></div>
+        </div>
+
+        {/* FORMULAR (Sticky) */}
+        {showForm && canEdit && (
+          <div className="mb-8 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg sticky top-20 z-40 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-2"><h3 className="font-bold text-lg text-slate-900 dark:text-white">{newMember.isEditing ? "Bearbeiten" : "Neu"}</h3><button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><FaTimes/></button></div>
+            <form onSubmit={handleSaveMember} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input required placeholder="Vorname" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.first_name} onChange={e => setNewMember({...newMember, first_name: e.target.value})} />
+              <input required placeholder="Nachname" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.last_name} onChange={e => setNewMember({...newMember, last_name: e.target.value})} />
+              
+              <div className="relative"><input type="date" className="p-2 w-full rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.birth_date} onChange={e => setNewMember({...newMember, birth_date: e.target.value})} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">Geb.</span></div>
+              <div className="relative"><input type="date" className="p-2 w-full rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.joined_at} onChange={e => setNewMember({...newMember, joined_at: e.target.value})} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">Eintritt</span></div>
+              <div className="relative"><input type="date" className="p-2 w-full rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.left_at} onChange={e => setNewMember({...newMember, left_at: e.target.value})} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">Austritt</span></div>
+
+              <input placeholder="E-Mail" type="email" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} />
+              <input required placeholder="Wohnort" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.city_of_residence} onChange={e => setNewMember({...newMember, city_of_residence: e.target.value})} />
+              
+              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value as any})}><option value="member">Mitglied</option><option value="board">Vorstand</option><option value="coach">Trainer</option><option value="admin">Admin</option></select>
+              {/* NEU: Status GAST */}
+              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.status} onChange={e => setNewMember({...newMember, status: e.target.value as any})}>
+                <option value="active">Aktiv</option>
+                <option value="passive">Passiv</option>
+                <option value="guest">Gast (Extern)</option>
+                <option value="left">Ausgeschieden</option>
+              </select>
+
+              <div className="md:col-span-3 flex justify-end gap-2 mt-2">
+                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded flex items-center gap-1"><FaTimes /> Abbrechen</button>
+                <button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 flex items-center gap-1" disabled={loading}><FaSave /> Speichern</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center mb-6">
+          <div className="relative w-full max-w-sm"><input type="text" placeholder="Suchen..." className="w-full p-2 pl-10 rounded-lg border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /><FaFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" /></div>
+          {canEdit && <button onClick={startAdd} className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"><FaUserPlus /> Neu</button>}
+        </div>
+
+        {/* 1. TABELLE: MITGLIEDER (Aktiv & Passiv) */}
+        {loading ? <p className="text-center p-12">Lade...</p> : renderTable(currentMembers, "Mitgliederliste", <FaUsers/>, "bg-slate-50/50 dark:bg-slate-800/50")}
+
+        {/* 2. TABELLE: GÄSTE (Neu) */}
+        {!loading && showGuests && guestMembers.length > 0 && (
+            renderTable(guestMembers, "Gäste / Externe", <FaUserTag/>, "bg-blue-50/50 dark:bg-blue-900/10")
+        )}
+
+        {/* 3. TABELLE: AUSGESCHIEDENE (Einklappbar) */}
+        {!loading && leftMembers.length > 0 && (
+            <div className="mt-12 border-t border-slate-200 dark:border-slate-800 pt-8">
+                <button onClick={() => setShowLeftMembers(!showLeftMembers)} className="flex items-center gap-2 mx-auto text-slate-500 hover:text-primary-600 font-medium transition-colors mb-6 px-6 py-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                    {showLeftMembers ? <FaChevronUp/> : <FaChevronDown/>}
+                    {showLeftMembers ? "Ausgeschiedene ausblenden" : `Ausgeschiedene anzeigen (${leftMembers.length})`}
+                </button>
+                {showLeftMembers && <div className="animate-in fade-in slide-in-from-top-4 duration-300">{renderTable(leftMembers, "Ausgeschiedene", <FaUserSlash className="text-red-400"/>, "bg-red-50/50 dark:bg-red-900/10")}</div>}
+            </div>
+        )}
+
+      </div>
     </div>
   );
 }
