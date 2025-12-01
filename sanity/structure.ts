@@ -1,37 +1,38 @@
-export const post = {
+import { defineType, defineField, defineArrayMember } from 'sanity';
+
+export const post = defineType({
   name: 'post',
   title: 'Artikel / News',
   type: 'document',
   fields: [
-    {
+    defineField({
       name: 'title',
       title: 'Überschrift',
       type: 'string',
-      validation: (Rule: any) => Rule.required(),
-    },
-    {
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: 'slug',
       title: 'Link-Name (Slug)',
       type: 'slug',
       options: { source: 'title' },
-      validation: (Rule: any) => Rule.required(),
-    },
-    {
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: 'publishedAt',
       title: 'Veröffentlicht am',
       type: 'datetime',
       initialValue: () => new Date().toISOString(),
-    },
-    {
+    }),
+    defineField({
       name: 'isInternal',
       title: 'Nur intern sichtbar?',
-      description: 'Wenn aktiviert, erscheint der Artikel nur im Mitgliederbereich.',
       type: 'boolean',
       initialValue: false,
-    },
-    {
+    }),
+    defineField({
       name: 'category',
-      title: 'Kategorie / Art des Events',
+      title: 'Kategorie',
       type: 'string',
       options: {
         list: [
@@ -45,69 +46,124 @@ export const post = {
         layout: 'radio',
       },
       initialValue: 'allgemein',
-    },
-    {
+    }),
+    defineField({
       name: 'mainImage',
       title: 'Hauptbild',
       type: 'image',
       options: { hotspot: true },
-    },
-    {
+    }),
+    
+    // --- CONTENT BODY (Hier war der Fehler) ---
+    defineField({
       name: 'body',
       title: 'Inhalt',
       type: 'array', 
-      of: [{ type: 'block' }],
-    },
-    
-    // --- NEU: DYNAMISCHE GRUPPEN (Das war die Fehlerquelle) ---
-    {
+      of: [
+        // 1. Standard Text
+        defineArrayMember({ 
+          type: 'block' 
+        }),
+        
+        // 2. Datei Download
+        defineArrayMember({
+          type: 'object',
+          name: 'sectionFile',
+          title: 'Datei-Download',
+          icon: () => '📎',
+          fields: [
+            { name: 'title', title: 'Titel', type: 'string', validation: (Rule) => Rule.required() },
+            { name: 'description', title: 'Beschreibung', type: 'string' },
+            { name: 'file', title: 'Datei', type: 'file', options: { storeOriginalFilename: true } }
+          ],
+          preview: {
+            select: { title: 'title', filename: 'file.asset.originalFilename' },
+            prepare({ title, filename }) {
+              return { title: title, subtitle: filename || 'Keine Datei' }
+            }
+          }
+        }),
+
+        // 3. YouTube Video
+        defineArrayMember({
+          type: 'object',
+          name: 'sectionVideo',
+          title: 'YouTube Video',
+          icon: () => '▶️',
+          fields: [
+            { name: 'url', title: 'YouTube URL', type: 'url', validation: (Rule) => Rule.required() },
+            { name: 'caption', title: 'Untertitel', type: 'string' }
+          ]
+        }),
+
+        // 4. Info Box
+        defineArrayMember({
+            type: 'object',
+            name: 'sectionInfo',
+            title: 'Info-Box',
+            icon: () => 'ℹ️',
+            fields: [
+              { name: 'title', title: 'Titel', type: 'string' },
+              { name: 'text', title: 'Text', type: 'text', rows: 3 },
+              { 
+                  name: 'type', 
+                  title: 'Art', 
+                  type: 'string', 
+                  options: { 
+                      list: [
+                          {title: 'Info (Blau)', value: 'info'},
+                          {title: 'Warnung (Gelb)', value: 'warning'},
+                          {title: 'Erfolg (Grün)', value: 'success'}
+                      ],
+                      layout: 'radio' 
+                  },
+                  initialValue: 'info'
+              }
+            ],
+            preview: {
+                select: { title: 'title', subtitle: 'text' },
+                prepare({ title, subtitle }) {
+                    return { title: title || 'Info Box', subtitle: subtitle }
+                }
+            }
+        })
+      ],
+    }),
+
+    // --- ANDERE FELDER ---
+    defineField({
       name: 'tournamentTables',
       title: 'Turniergruppen & Ergebnisse',
       type: 'array',
-      description: 'Füge hier Tabellen für verschiedene Gruppen oder Phasen hinzu.',
       of: [
-        {
+        defineArrayMember({
           type: 'object',
-          name: 'groupTable', // Eindeutiger Name für das Objekt
+          name: 'groupTable',
           title: 'Gruppe / Phase',
           fields: [
-            {
-              name: 'title',
-              title: 'Titel (z.B. "Gruppe A", "Endstand")',
-              type: 'string',
-              validation: (Rule: any) => Rule.required(),
-            },
-            {
-              name: 'table',
-              title: 'Wertetabelle (Ergebnisse)',
-              type: 'table', 
-            }
-          ],
-          // VORSCHAU: Das verhindert Abstürze beim Anzeigen der Liste im Studio
-          preview: {
-            select: {
-              title: 'title',
-            },
-            prepare(selection: any) {
-                return {
-                    title: selection.title || 'Neue Ergebnistabelle',
-                    subtitle: 'Tabellenphase'
-                }
-            }
-          }
-        }
+            { name: 'title', title: 'Titel', type: 'string' },
+            { name: 'table', title: 'Wertetabelle', type: 'table' }
+          ]
+        })
       ]
-    },
-    // --- ENDE NEU ---
+    }),
 
-    {
+    defineField({
       name: 'gallery',
-      title: 'Bildergalerie zum Artikel',
+      title: 'Bildergalerie',
       type: 'array',
-      of: [{ type: 'image' }],
       options: {
-        layout: 'grid',
+        layout: 'grid', 
       },
-    },
+      of: [
+        defineArrayMember({ 
+          type: 'image',
+          options: { 
+             hotspot: true,
+             storeOriginalFilename: false 
+          }
+        })
+      ]
+    }),
   ],
-};
+});
