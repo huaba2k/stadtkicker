@@ -5,20 +5,21 @@ import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
-// FIX: Import von react-icons statt lucide-react
-import { FaBars, FaTimes, FaChevronDown } from 'react-icons/fa';
+// NEU: FaShoppingCart hinzugefügt
+import { FaBars, FaTimes, FaChevronDown, FaShoppingCart } from 'react-icons/fa';
 
+// Wir erweitern die Struktur um 'target' (optional)
 const navigation = [
   { name: 'Start', href: '/' },
-  { 
-    name: 'Der Verein', 
-    href: '#', 
-    children: [
-      { name: 'Vorstand', href: '/verein/vorstand' },
-      { name: 'Mitgliedschaft', href: '/verein/mitgliedschaft' },
-      { name: 'Satzung', href: '/verein/satzung' },
-    ]
-  },
+//  { 
+//    name: 'Der Verein', 
+ //   href: '#', 
+ //   children: [
+ //     { name: 'Vorstand', href: '/verein/vorstand' },
+ //     { name: 'Mitgliedschaft', href: '/verein/mitgliedschaft' },
+ //     { name: 'Satzung', href: '/verein/satzung' },
+ //   ]
+ // },
   {
     name: 'Sport',
     href: '#',
@@ -31,6 +32,14 @@ const navigation = [
     ]
   },
   { name: 'Galerie', href: '/galerie' },
+  
+  // --- NEU: SHOP LINK (Extern) ---
+  { 
+    name: 'Shop', 
+    href: 'https://shop-primosport.de/garchinger-stadtkicker', // <-- Hier deine URL eintragen
+    target: '_blank' // Öffnet im neuen Tab
+  },
+  
   { name: 'Kontakt', href: '/kontakt' },
 ];
 
@@ -65,6 +74,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           
+          {/* LOGO */}
           <div className="flex-shrink-0 flex items-center gap-3 mr-4">
             <Link href="/" className="flex items-center gap-3">
               <div className="relative w-10 h-10">
@@ -76,6 +86,7 @@ export default function Navbar() {
             </Link>
           </div>
 
+          {/* LINK CONTAINER */}
           <div className="flex-grow h-full flex items-center justify-center relative" ref={navContainerRef}>
             <div 
                 ref={linksRef}
@@ -87,7 +98,6 @@ export default function Navbar() {
                     <>
                         <button className="text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1 group-hover:text-primary-600">
                         {item.name}
-                        {/* FIX: FaChevronDown */}
                         <FaChevronDown className="w-3 h-3 transition-transform group-hover:rotate-180" />
                         </button>
                         <div className="absolute left-0 mt-0 w-56 rounded-xl shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 overflow-hidden z-[60]">
@@ -101,7 +111,18 @@ export default function Navbar() {
                         </div>
                     </>
                     ) : (
-                    <Link href={item.href} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${pathname === item.href ? "text-primary-600 bg-primary-100/50 dark:bg-primary-900/30 dark:text-primary-400" : "text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50/50 dark:hover:bg-slate-800/50"}`}>
+                    <Link 
+                        href={item.href} 
+                        target={(item as any).target} // Target setzen (_blank)
+                        rel={(item as any).target === '_blank' ? 'noopener noreferrer' : undefined}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                             pathname === item.href 
+                             ? "text-primary-600 bg-primary-100/50 dark:bg-primary-900/30 dark:text-primary-400" 
+                             : "text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50/50 dark:hover:bg-slate-800/50"
+                        }`}
+                    >
+                        {/* Icon nur beim Shop anzeigen */}
+                        {item.name === 'Shop' && <FaShoppingCart className="w-4 h-4" />}
                         {item.name}
                     </Link>
                     )}
@@ -110,19 +131,20 @@ export default function Navbar() {
             </div>
           </div>
 
+          {/* RECHTS */}
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 ml-4">
               <ThemeToggle />
               <Link href="/login" className="hidden md:inline-block bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm">
                 Intern
               </Link>
               <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`${forceMobile ? 'block' : 'md:hidden'} text-slate-600 dark:text-slate-300 hover:text-primary-600 p-2`}>
-                {/* FIX: FaTimes und FaBars */}
                 {isMobileMenuOpen ? <FaTimes className="h-6 w-6" /> : <FaBars className="h-6 w-6" />}
               </button>
           </div>
         </div>
       </div>
 
+      {/* MOBILE MENU */}
       {isMobileMenuOpen && (
         <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-lg overflow-y-auto max-h-[80vh]">
           <div className="px-2 pt-2 pb-3 space-y-1">
@@ -132,7 +154,7 @@ export default function Navbar() {
                   <>
                     <button onClick={() => setOpenSubmenu(openSubmenu === item.name ? null : item.name)} className="w-full flex justify-between items-center px-3 py-3 rounded-md text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors">
                       {item.name}
-                      <FaChevronDown className={`w-3 h-3 transform transition-transform ${openSubmenu === item.name ? 'rotate-180' : ''}`} />
+                      <FaChevronDown className={`w-4 h-4 transform transition-transform ${openSubmenu === item.name ? 'rotate-180' : ''}`} />
                     </button>
                     <div className={`overflow-hidden transition-all duration-300 ${openSubmenu === item.name ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                       <div className="pl-4 space-y-1 bg-slate-50 dark:bg-slate-800/50 rounded-md my-1 py-1">
@@ -145,7 +167,14 @@ export default function Navbar() {
                     </div>
                   </>
                 ) : (
-                  <Link href={item.href} onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-3 rounded-md text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-800 hover:text-primary-600 transition-colors">
+                  <Link 
+                    href={item.href} 
+                    target={(item as any).target}
+                    rel={(item as any).target === '_blank' ? 'noopener noreferrer' : undefined}
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                    className="flex items-center gap-2 px-3 py-3 rounded-md text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-slate-800 hover:text-primary-600 transition-colors"
+                  >
+                    {item.name === 'Shop' && <FaShoppingCart className="w-4 h-4" />}
                     {item.name}
                   </Link>
                 )}
