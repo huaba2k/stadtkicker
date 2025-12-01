@@ -83,7 +83,7 @@ export default function KontaktPage() {
                       </div>
                       <div>
                          <h4 className="font-bold text-slate-900 dark:text-white">E-Mail</h4>
-                         <a href="mailto:info@garchinger-stadtkicker.de" className="text-primary-600 hover:underline">kontakt@garchinger-stadtkicker.de</a>
+                         <a href="mailto:kontakt@garchinger-stadtkicker.de" className="text-primary-600 hover:underline">kontakt@garchinger-stadtkicker.de</a>
                       </div>
                    </div>
                 </div>
