@@ -1,19 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaPaperPlane, FaCheckCircle } from "react-icons/fa";
 
 export default function KontaktPage() {
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setStatus("submitting");
+    setIsSubmitting(true);
+    setError("");
 
     const formData = new FormData(e.currentTarget);
-    
-    // --- DEIN KEY ---
-    formData.append("access_key", "3aa9293e-f0be-4973-a369-f55f9b4a18fb"); 
-
+    // Wir wandeln FormData in ein normales JSON-Objekt um
     const object = Object.fromEntries(formData);
     const json = JSON.stringify(object);
 
@@ -22,94 +23,144 @@ export default function KontaktPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json"
+          Accept: "application/json",
         },
-        body: json
+        body: json,
       });
 
       const result = await response.json();
 
       if (result.success) {
-        setStatus("success");
-        e.currentTarget.reset();
+        setIsSuccess(true);
+        // Optional: Formular resetten
+        (e.target as HTMLFormElement).reset();
       } else {
-        console.error("API Fehler:", result);
-        setStatus("error");
+        console.error("Web3Forms Error:", result);
+        setError("Etwas hat nicht geklappt. Bitte versuche es später noch einmal.");
       }
-    } catch (error) {
-      console.error("Netzwerkfehler:", error);
-      setStatus("error");
+    } catch (err) {
+      console.error("Network Error:", err);
+      setError("Verbindungsfehler. Bitte prüfe deine Internetverbindung.");
+    } finally {
+      setIsSubmitting(false);
     }
-  };
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-6 text-center">Kontakt aufnehmen</h1>
-        <p className="text-slate-600 dark:text-slate-300 text-center mb-10">
-          Du hast Fragen zum Training, willst Mitglied werden oder uns zu einem Turnier einladen? Schreib uns!
-        </p>
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 md:py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white mb-4">
+            KONTAKT
+          </h1>
+          <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+            Du hast Fragen zur Mitgliedschaft, zum Training oder möchtest uns unterstützen? 
+            Schreib uns einfach!
+          </p>
+        </div>
 
-        {status === "success" ? (
-          <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-8 rounded-xl text-center border border-green-200 dark:border-green-800 shadow-sm">
-            <div className="w-16 h-16 bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-              ✓
-            </div>
-            <h3 className="font-bold text-2xl mb-2">Nachricht gesendet!</h3>
-            <p className="mb-6">Vielen Dank. Wir melden uns so schnell wie möglich bei dir.</p>
-            <button 
-              onClick={() => setStatus("idle")} 
-              className="px-6 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-white rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-            >
-              Neue Nachricht schreiben
-            </button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          
+          {/* Linke Spalte: Infos */}
+          <div className="space-y-8">
+             <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Deine Ansprechpartner</h3>
+                <div className="space-y-6">
+                   <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+                         <FaMapMarkerAlt />
+                      </div>
+                      <div>
+                         <h4 className="font-bold text-slate-900 dark:text-white">Sportgelände</h4>
+                         <p className="text-slate-600 dark:text-slate-400">Schleißheimer Str. 40<br/>85748 Garching bei München</p>
+                      </div>
+                   </div>
+
+                   <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+                         <FaEnvelope />
+                      </div>
+                      <div>
+                         <h4 className="font-bold text-slate-900 dark:text-white">E-Mail</h4>
+                         <a href="mailto:info@garchinger-stadtkicker.de" className="text-primary-600 hover:underline">info@garchinger-stadtkicker.de</a>
+                      </div>
+                   </div>
+                </div>
+             </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 rounded-xl p-6 sm:p-8 space-y-6">
-            <input type="checkbox" name="botcheck" className="hidden" style={{ display: 'none' }} />
 
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Dein Name</label>
-              <input type="text" name="name" id="name" required className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 py-3 px-4" />
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Deine E-Mail</label>
-              <input type="email" name="email" id="email" required className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 py-3 px-4" />
-            </div>
-
-            <div>
-              <label htmlFor="subject" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Betreff</label>
-              <select name="subject" id="subject" className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 py-3 px-4">
-                <option>Allgemeine Anfrage</option>
-                <option>Mitgliedschaft</option>
-                <option>Turniereinladung</option>
-                <option>Stockschützen</option>
-                <option>Sonstiges</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="message" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nachricht</label>
-              <textarea name="message" id="message" rows={5} required className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 py-3 px-4"></textarea>
-            </div>
-
-            {status === "error" && (
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm text-center border border-red-100 dark:border-red-800">
-                Es gab einen Fehler beim Senden. Bitte versuche es später erneut oder schreibe direkt an kontakt@garchinger-stadtkicker.de
+          {/* Rechte Spalte: Formular */}
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+            
+            {/* Access Key für Web3Forms */}
+            {/* WICHTIG: Ersetze 'YOUR_ACCESS_KEY' mit deinem echten Key in .env.local oder hier direkt */}
+            
+            {isSuccess ? (
+              <div className="flex flex-col items-center justify-center text-center py-12 animate-in fade-in zoom-in duration-300">
+                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl mb-6">
+                    <FaCheckCircle />
+                 </div>
+                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Nachricht gesendet!</h3>
+                 <p className="text-slate-600 dark:text-slate-400 mb-8">
+                   Vielen Dank für deine Anfrage. Wir melden uns so schnell wie möglich bei dir.
+                 </p>
+                 <button 
+                   onClick={() => setIsSuccess(false)}
+                   className="text-primary-600 font-bold hover:underline"
+                 >
+                   Noch eine Nachricht schreiben
+                 </button>
               </div>
-            )}
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Hidden Fields für Web3Forms Config */}
+                <input type="hidden" name="access_key" value="3aa9293e-f0be-4973-a369-f55f9b4a18fb" />
+                <input type="hidden" name="subject" value="Neue Nachricht über Website Kontaktformular" />
+                <input type="hidden" name="from_name" value="Garchinger Stadtkicker Website" />
+                
+                {/* Honeypot gegen Spam (wird per CSS versteckt, aber Bots füllen es aus) */}
+                <input type="checkbox" name="botcheck" className="hidden" style={{ display: 'none' }} />
 
-            <button 
-              type="submit" 
-              disabled={status === "submitting"}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {status === "submitting" ? "Wird gesendet..." : "Nachricht absenden"}
-            </button>
-          </form>
-        )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Name</label>
+                    <input type="text" name="name" required className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 outline-none transition-all" placeholder="Max Mustermann" />
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">E-Mail</label>
+                    <input type="email" name="email" required className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 outline-none transition-all" placeholder="max@beispiel.de" />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Nachricht</label>
+                  <textarea name="message" rows={5} required className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 outline-none transition-all" placeholder="Deine Nachricht an uns..."></textarea>
+                </div>
+
+                {error && (
+                  <div className="p-4 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                    {error}
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl shadow-lg hover:shadow-primary-500/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    "Wird gesendet..."
+                  ) : (
+                    <>Nachricht absenden <FaPaperPlane /></>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
