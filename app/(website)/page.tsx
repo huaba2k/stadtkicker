@@ -193,7 +193,7 @@ export default async function HomePage() {
                 Wir suchen immer Verstärkung für unsere Teams und das Vereinsleben.
               </p>
               <Link 
-                href="/verein/mitgliedschaft" 
+                href="/mitgliedschaft" 
                 className="inline-block bg-white text-primary-700 px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-primary-50 transition-colors shadow-sm relative z-10"
               >
                 Mitglied werden

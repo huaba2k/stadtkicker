@@ -11,15 +11,15 @@ import { FaBars, FaTimes, FaChevronDown, FaShoppingCart } from 'react-icons/fa';
 // Wir erweitern die Struktur um 'target' (optional)
 const navigation = [
   { name: 'Start', href: '/' },
-//  { 
-//    name: 'Der Verein', 
- //   href: '#', 
- //   children: [
- //     { name: 'Vorstand', href: '/verein/vorstand' },
- //     { name: 'Mitgliedschaft', href: '/verein/mitgliedschaft' },
- //     { name: 'Satzung', href: '/verein/satzung' },
- //   ]
- // },
+  { 
+    name: 'Der Verein', 
+    href: '#', 
+    children: [
+      { name: 'Vorstand', href: '/vorstand' },
+      { name: 'Mitgliedschaft', href: '/mitgliedschaft' },
+      //{ name: 'Satzung', href: '/satzung' },  
+   ]
+  },
   {
     name: 'Sport',
     href: '#',
