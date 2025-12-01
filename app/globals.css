@@ -2,7 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Optional: Damit der Footer immer unten klebt */
-html, body {
-  height: 100%;
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* --- DER FIX FÜR HANDYS --- */
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden; /* Verhindert das Wischen der ganzen Seite */
+  position: relative;
+}
+
+/* Scrollbars hübscher machen */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
 }

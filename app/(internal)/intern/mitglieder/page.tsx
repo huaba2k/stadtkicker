@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase"; // Alias nutzen
-import { Member } from "@/types/supabase"; // Alias nutzen
+import { supabase } from "@/lib/supabase"; 
+import { Member } from "@/types/supabase"; 
 import { FaUserPlus, FaEdit, FaTrash, FaSave, FaTimes, FaUsers, FaChartBar, FaFilePdf, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserSlash, FaChevronDown, FaChevronUp, FaUserTag, FaIdCard } from "react-icons/fa";
 
 type MemberFormState = {
@@ -143,7 +143,7 @@ export default function MitgliederPage() {
       return result;
     });
 
-    // Aufteilung
+    // DREI LISTEN:
     const current = filtered.filter(m => m.status === 'active' || m.status === 'passive' || (!m.status && m.status !== 'guest'));
     const guests = filtered.filter(m => m.status === 'guest');
     const left = filtered.filter(m => m.status === 'left');
@@ -164,7 +164,6 @@ export default function MitgliederPage() {
     const garchingMembers = realMembers.filter(m => m.city_of_residence?.toLowerCase().includes('garching')).length;
     const garchingPercentage = totalMembers > 0 ? ((garchingMembers / totalMembers) * 100).toFixed(1).replace('.', ',') : '0';
     const guestCount = members.filter(m => m.status === 'guest').length;
-
     return { totalMembers, garchingMembers, garchingPercentage, guestCount };
   }, [members]);
 
@@ -227,15 +226,15 @@ export default function MitgliederPage() {
     return sortConfig.direction === 'asc' ? <FaSortUp className="inline ml-1 text-primary-500" /> : <FaSortDown className="inline ml-1 text-primary-500" />;
   };
 
-  // --- RENDER TABLE COMPONENT (Mobile Safe) ---
+  // --- RENDER TABLE ---
   const renderTable = (data: Member[], title: string, icon: React.ReactNode, colorClass: string) => (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden mb-8">
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden mb-8 w-full">
         <div className={`px-6 py-4 border-b border-slate-100 dark:border-slate-700 ${colorClass}`}>
-            <h3 className="font-bold text-slate-700 dark:text-slate-300 uppercase text-xs tracking-wider flex items-center gap-2">
+            <h3 className="font-bold text-slate-700 dark:text-slate-200 uppercase text-xs tracking-wider flex items-center gap-2">
                 {icon} {title} ({data.length})
             </h3>
         </div>
-        {/* FIX: overflow-x-auto hier sorgt für Scrollbarkeit */}
+        {/* MOBILE SCROLL WRAPPER */}
         <div className="overflow-x-auto w-full">
             <table className="min-w-[800px] w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
               <thead className="bg-slate-50 dark:bg-slate-700/50">
@@ -248,7 +247,7 @@ export default function MitgliederPage() {
                   <th onClick={() => requestSort('attendance_passive')} className="px-6 py-3 text-center font-bold cursor-pointer text-slate-400 hover:text-amber-600">Pass.</th>
                   <th onClick={() => requestSort('attendance_helper')} className="px-6 py-3 text-center font-bold cursor-pointer text-purple-600 hover:text-purple-800">Helf.</th>
                   <th onClick={() => requestSort('attendance_absent')} className="px-6 py-3 text-center font-bold cursor-pointer text-red-400 hover:text-red-600">Abw.</th>
-                  <th className="px-6 py-3 text-right font-bold print:hidden sticky right-0 bg-white dark:bg-slate-800">Aktion</th>
+                  <th className="px-6 py-3 text-right font-bold print:hidden sticky right-0 bg-white dark:bg-slate-800 border-l dark:border-slate-700">Edit</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
@@ -287,7 +286,6 @@ export default function MitgliederPage() {
                       <td className={`px-6 py-4 text-center text-purple-600 ${isHistoric ? 'text-gray-300' : ''}`}>{isHistoric ? '-' : stats.helper}</td>
                       <td className={`px-6 py-4 text-center text-red-500 ${isHistoric ? 'text-gray-300' : ''}`}>{isHistoric ? '-' : stats.absent}</td>
                       
-                      {/* Sticky Action Column */}
                       <td className="px-6 py-4 text-right space-x-2 print:hidden sticky right-0 bg-white dark:bg-slate-800 border-l dark:border-slate-700">
                         {canEdit && <><button onClick={() => startEdit(m)} className="text-primary-600 hover:text-primary-900 p-1"><FaEdit /></button><button onClick={() => handleDelete(m.id)} className="text-red-600 hover:text-red-900 p-1"><FaTrash /></button></>}
                       </td>
@@ -340,7 +338,6 @@ export default function MitgliederPage() {
               <input required placeholder="Wohnort" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.city_of_residence} onChange={e => setNewMember({...newMember, city_of_residence: e.target.value})} />
               
               <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value as any})}><option value="member">Mitglied</option><option value="board">Vorstand</option><option value="coach">Trainer</option><option value="admin">Admin</option></select>
-              {/* NEU: Status GAST */}
               <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.status} onChange={e => setNewMember({...newMember, status: e.target.value as any})}>
                 <option value="active">Aktiv</option>
                 <option value="passive">Passiv</option>
