@@ -26,20 +26,19 @@ export const page = defineType({
       initialValue: false,
     }),
     
-    // --- DER PAGE BUILDER ---
     defineField({
       name: 'content',
       title: 'Seiten-Inhalt',
       type: 'array',
       of: [
-        // 1. Text-Block
+        // 1. Text
         {
           type: 'object',
           name: 'sectionText',
           title: 'Text-Abschnitt',
           icon: () => '📝',
           fields: [
-            { name: 'heading', title: 'Überschrift (Optional)', type: 'string' },
+            { name: 'heading', title: 'Überschrift', type: 'string' },
             { name: 'text', title: 'Inhalt', type: 'array', of: [{ type: 'block' }] },
           ],
           preview: {
@@ -49,11 +48,11 @@ export const page = defineType({
             }
           }
         },
-        // 2. Hero-Bild
+        // 2. Hero Bild
         {
           type: 'object',
           name: 'sectionHero',
-          title: 'Großes Bild (Hero)',
+          title: 'Hero / Banner Bild',
           icon: () => '🖼️',
           fields: [
             { name: 'image', title: 'Bild', type: 'image', options: { hotspot: true } },
@@ -91,6 +90,42 @@ export const page = defineType({
               return { title: title, subtitle: filename }
             }
           }
+        },
+        // 5. YouTube Video
+        {
+          type: 'object',
+          name: 'sectionVideo',
+          title: 'YouTube Video',
+          icon: () => '▶️',
+          fields: [
+            { name: 'url', title: 'YouTube URL', type: 'url', validation: (Rule) => Rule.required() },
+            { name: 'caption', title: 'Untertitel (Optional)', type: 'string' }
+          ]
+        },
+        // 6. Info Box
+        {
+          type: 'object',
+          name: 'sectionInfo',
+          title: 'Info-Box / Hinweis',
+          icon: () => 'ℹ️',
+          fields: [
+            { name: 'title', title: 'Titel (z.B. WICHTIG)', type: 'string' },
+            { name: 'text', title: 'Text', type: 'text', rows: 3 },
+            { 
+                name: 'type', 
+                title: 'Art', 
+                type: 'string', 
+                options: { 
+                    list: [
+                        {title: 'Info (Blau)', value: 'info'},
+                        {title: 'Warnung/Wichtig (Gelb)', value: 'warning'},
+                        {title: 'Erfolg/Grün (Grün)', value: 'success'}
+                    ],
+                    layout: 'radio' 
+                },
+                initialValue: 'info'
+            }
+          ]
         }
       ]
     }),

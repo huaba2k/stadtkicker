@@ -2,34 +2,42 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
-// Wir nutzen hier explizite relative Pfade (5 Ebenen hoch), um Import-Fehler zu vermeiden
-import { client } from "../../../../../sanity/client"; 
-import { urlFor } from "../../../../../sanity/image";
-import Gallery from "../../../../../components/Gallery"; 
-import FileDownload from "../../../../../components/FileDownload"; 
+// Sichere Imports via Alias
+import { client } from "@/sanity/client"; 
+import { urlFor } from "@/sanity/image";
+import Gallery from "@/components/Gallery"; 
+import FileDownload from "@/components/FileDownload"; 
+import YouTubeEmbed from "@/components/YouTubeEmbed";
+import InfoBox from "@/components/InfoBox";
 
+// 1. Statische Pfade für ALLE Posts generieren (damit interne Links funktionieren)
 export async function generateStaticParams() {
-  const query = `*[_type == "post" && isInternal == true]{ "slug": slug.current }`;
+  const query = `*[_type == "post"]{ "slug": slug.current }`;
   const posts = await client.fetch(query);
   return posts.map((post: any) => ({ slug: post.slug }));
 }
 
+// 2. Post laden (Egal ob intern oder öffentlich)
 async function getInternalPost(slug: string) {
   const query = `*[_type == "post" && slug.current == $slug][0] {
     title, mainImage, publishedAt, gallery, isInternal, category,
     tournamentTables[] { title, table },
     body[] {
       ...,
-      _type == 'sectionFile' => {
-        title, description,
-        file { asset-> { url, size, extension } }
-      }
+      _type == 'sectionFile' => { 
+        title, description, 
+        file { asset-> { url, size, extension } } 
+      },
+      _type == 'sectionVideo' => { url, caption },
+      _type == 'sectionInfo' => { title, text, type }
     }
   }`;
-  // ISR: Cache für 60 Sekunden
+  
+  // ISR Cache: 60 Sekunden
   return client.fetch(query, { slug }, { next: { revalidate: 60 } });
 }
 
+// 3. Komponenten für Text-Editor
 const ptComponents = {
   types: {
     sectionFile: ({ value }: any) => (
@@ -40,7 +48,9 @@ const ptComponents = {
         size={value.file?.asset?.size}
         extension={value.file?.asset?.extension}
       />
-    )
+    ),
+    sectionVideo: ({ value }: any) => <YouTubeEmbed url={value.url} caption={value.caption} />,
+    sectionInfo: ({ value }: any) => <InfoBox title={value.title} text={value.text} type={value.type} />
   }
 };
 
@@ -81,7 +91,9 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
         
         {/* Badges */}
         <div className="absolute top-4 right-4 flex gap-2">
-           <div className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">INTERN</div>
+           {post.isInternal && (
+             <div className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">INTERN</div>
+           )}
            {post.category && (
               <div className="bg-slate-800/80 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm uppercase backdrop-blur-sm">
                 {post.category}
@@ -90,7 +102,7 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
         </div>
 
         <div className="absolute bottom-0 left-0 w-full p-8 max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 shadow-sm">{post.title}</h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 shadow-sm leading-tight">{post.title}</h1>
           <p className="text-slate-200 text-sm font-medium">{dateString}</p>
         </div>
       </div>
@@ -103,21 +115,24 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
             </Link>
             
             <div className="prose prose-lg dark:prose-invert prose-blue max-w-none">
+              {/* Inhalt rendern */}
               {post.body && <PortableText value={post.body} components={ptComponents} />}
             </div>
 
-            {/* Turnier-Tabellen */}
+            {/* Turnier-Tabellen (Responsiv) */}
             {post.tournamentTables && post.tournamentTables.length > 0 && (
-              <div className="mt-12 not-prose space-y-8">
+              <div className="mt-12 not-prose space-y-8 border-t border-slate-100 dark:border-slate-700 pt-8">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Ergebnisse</h3>
                 {post.tournamentTables.map((item: any, index: number) => (
                   <div key={index}>
-                    <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-3 pl-1 border-l-4 border-primary-500">
+                    <h4 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-3 pl-3 border-l-4 border-primary-500">
                       {item.title}
                     </h4>
+                    
                     {item.table && (
-                      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-                        <table className="w-full text-sm text-left border-collapse min-w-[500px]">
-                          <thead className="bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold">
+                      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                        <table className="w-full text-sm text-left border-collapse min-w-[600px]">
+                          <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                             <tr>
                               {item.table.rows[0].cells.map((c: string, i: number) => (
                                 <th key={i} className="p-3 border-b border-slate-200 dark:border-slate-700">{c}</th>
@@ -126,9 +141,9 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {item.table.rows.slice(1).map((row: any, i: number) => (
-                              <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                              <tr key={i} className="hover:bg-white dark:hover:bg-slate-800 transition-colors">
                                 {row.cells.map((c: string, j: number) => (
-                                  <td key={j} className="p-3 text-slate-600 dark:text-slate-300">{c}</td>
+                                  <td key={j} className="p-3 text-slate-600 dark:text-slate-300 border-r border-transparent last:border-r-0">{c}</td>
                                 ))}
                               </tr>
                             ))}

@@ -2,35 +2,66 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
+// Wir nutzen den sicheren Alias @ für Importe
 import { client } from "@/sanity/client"; 
 import { urlFor } from "@/sanity/image";
 import Gallery from "@/components/Gallery"; 
 import FileDownload from "@/components/FileDownload"; 
+import YouTubeEmbed from "@/components/YouTubeEmbed";
+import InfoBox from "@/components/InfoBox";
 
+// 1. Statische Pfade generieren (nur für öffentliche Posts)
 export async function generateStaticParams() {
-  const query = `*[_type == "post"]{ "slug": slug.current }`;
+  const query = `*[_type == "post" && isInternal != true]{ "slug": slug.current }`;
   const posts = await client.fetch(query);
   return posts.map((post: any) => ({ slug: post.slug }));
 }
 
+// 2. Daten laden
 async function getPost(slug: string) {
-  const query = `*[_type == "post" && slug.current == $slug][0] {
-    title, mainImage, publishedAt, body, gallery, category, isInternal,
+  // WICHTIG: Filter && isInternal != true verhindert Zugriff auf interne News
+  const query = `*[_type == "post" && slug.current == $slug && isInternal != true][0] {
+    title, 
+    mainImage, 
+    publishedAt, 
+    category,
+    
+    // Turnier-Tabellen
     tournamentTables[] { title, table },
+    
+    // Inhalt (Body) mit erweiterten Komponenten
     body[] {
       ...,
-      _type == 'sectionFile' => {
-        title, description,
-        file { asset-> { url, size, extension } }
+      _type == 'sectionFile' => { 
+        title, 
+        description, 
+        file { 
+          asset-> { url, size, extension } 
+        } 
+      },
+      _type == 'sectionVideo' => { 
+        url, 
+        caption 
+      },
+      _type == 'sectionInfo' => { 
+        title, 
+        text, 
+        type 
       }
-    }
+    },
+
+    // Galerie
+    gallery
   }`;
   
+  // ISR: Cache für 60 Sekunden
   return client.fetch(query, { slug }, { next: { revalidate: 60 } });
 }
 
+// 3. Konfiguration für den Text-Editor (PortableText)
 const ptComponents = {
   types: {
+    // Datei-Download im Text
     sectionFile: ({ value }: any) => (
       <FileDownload 
         title={value.title} 
@@ -38,6 +69,21 @@ const ptComponents = {
         fileUrl={value.file?.asset?.url} 
         size={value.file?.asset?.size}
         extension={value.file?.asset?.extension}
+      />
+    ),
+    // YouTube Video im Text
+    sectionVideo: ({ value }: any) => (
+      <YouTubeEmbed 
+        url={value.url} 
+        caption={value.caption} 
+      />
+    ),
+    // Info-Box im Text
+    sectionInfo: ({ value }: any) => (
+      <InfoBox 
+        title={value.title} 
+        text={value.text} 
+        type={value.type} 
       />
     )
   }
@@ -47,12 +93,14 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const post = await getPost(slug);
 
+  // Wenn nicht gefunden oder intern -> 404
   if (!post) return notFound();
 
   const dateString = post.publishedAt 
     ? new Date(post.publishedAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) 
-    : 'Datum unbekannt';
+    : '';
 
+  // Bilder für die Galerie vorbereiten
   const galleryImages = post.gallery?.map((img: any) => ({
     src: urlFor(img).width(1200).url(), 
     width: 1200, 
@@ -63,10 +111,16 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
   return (
     <article className="min-h-screen bg-white dark:bg-slate-950 pb-20 pt-20">
       
-      {/* Header */}
+      {/* --- HEADER BILD --- */}
       <div className="relative h-[400px] w-full bg-slate-200 dark:bg-slate-800">
         {post.mainImage ? (
-          <Image src={urlFor(post.mainImage).url()} alt={post.title} fill className="object-cover" priority />
+          <Image 
+            src={urlFor(post.mainImage).url()} 
+            alt={post.title} 
+            fill 
+            className="object-cover" 
+            priority 
+          />
         ) : (
           <div className="flex items-center justify-center h-full text-slate-400">Kein Titelbild</div>
         )}
@@ -77,27 +131,30 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
                <span className="px-3 py-1 bg-primary-600 text-white text-xs font-bold rounded-full uppercase">
                  {post.category || "News"}
                </span>
-               {post.isInternal && <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full">INTERN</span>}
              </div>
-             <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 leading-tight">{post.title}</h1>
-             <p className="text-slate-300">{dateString}</p>
+             <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 leading-tight">
+               {post.title}
+             </h1>
+             <p className="text-slate-300 font-medium">{dateString}</p>
         </div>
       </div>
 
+      {/* --- INHALT --- */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 relative z-10">
+        
         <Link href="/news" className="inline-flex items-center text-sm text-slate-500 hover:text-primary-600 mb-8 transition-colors">
           ← Zurück zur Übersicht
         </Link>
 
-        {/* Inhalt mit Downloads */}
+        {/* Fließtext mit dynamischen Komponenten */}
         <div className="prose prose-lg dark:prose-invert prose-blue mx-auto mb-12">
           {post.body && <PortableText value={post.body} components={ptComponents} />}
         </div>
 
-        {/* Tabellen - FIX: Responsiv gemacht */}
+        {/* Turnier-Tabellen (Manuell angehängt) */}
         {post.tournamentTables && post.tournamentTables.length > 0 && (
-          <div className="mb-16 not-prose space-y-12">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">
+          <div className="mb-16 not-prose space-y-12 border-t border-slate-200 dark:border-slate-800 pt-12">
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 pb-2">
               Turnierverlauf & Ergebnisse
             </h3>
             {post.tournamentTables.map((item: any, index: number) => (
@@ -106,7 +163,7 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
                   <span className="w-2 h-2 rounded-full bg-primary-500"></span>{item.title}
                 </h4>
                  
-                 {/* CONTAINER FÜR SCROLLEN */}
+                 {/* Scrollbare Tabelle für Handy */}
                  {item.table && (
                    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900">
                       <table className="w-full text-sm text-left border-collapse min-w-[600px]">
@@ -139,7 +196,7 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
         )}
       </div>
 
-      {/* Galerie */}
+      {/* --- BILDERGALERIE --- */}
       {galleryImages.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 pt-16 border-t border-slate-200 dark:border-slate-800">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-8 text-center md:text-left">
