@@ -11,11 +11,21 @@ import { FaBars, FaTimes, FaChevronDown, FaCog } from 'react-icons/fa';
 const baseNavigation = [
   { name: 'Dashboard', href: '/intern' },
   { name: 'News', href: '/intern/news' },
-  { name: 'Downloads', href: '/intern/downloads' },
-  { name: 'Kalender', href: '/intern/kalender' }, 
-  { name: 'Galerie', href: '/intern/galerie' },
-  { name: 'Torschützen', href: '/intern/torschuetzen' },
   { name: 'Schafkopf', href: '/intern/schafkopf' },
+    { name: 'Verein',
+      href: '#',
+    children: [
+  { name: 'Kalender', href: '/intern/kalender' }, 
+  { name: 'Torschützen', href: '/intern/torschuetzen' },
+    ]
+  },
+  { name: 'Medien',
+    href: '#',
+    children: [
+      { name: 'Downloads', href: '/intern/downloads' },
+      { name: 'Galerie', href: '/intern/galerie' },
+    ]
+  },
 ];
 
 const adminNavigation = [
