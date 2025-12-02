@@ -76,7 +76,7 @@ export default function MitgliederPage() {
         if (member && ['admin', 'board', 'coach'].includes(member.role)) {
           setHasReadAccess(true);
           if (member.role === 'admin' || member.role === 'board') setCanEdit(true);
-          fetchMembers(false); // Initialer Load mit Spinner
+          fetchMembers(); // Initialer Load
         }
       }
       setAuthChecking(false);
@@ -88,16 +88,13 @@ export default function MitgliederPage() {
     if (hasReadAccess) fetchYearlyStats(selectedYear);
   }, [selectedYear, hasReadAccess]);
 
-  // --- DATEN LADEN (Optimiert: Kein Springen) ---
+  // --- DATEN LADEN ---
   const fetchMembers = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
-    
     const { data, error } = await supabase.from("members").select("*").eq("is_hidden", false).order("last_name", { ascending: true });
-    
     if (error) showNotification("Fehler: " + error.message, 'error');
     else setMembers(data as Member[]);
-    
-    setLoading(false);
+    if (!isBackground) setLoading(false);
   };
 
   const fetchYearlyStats = async (year: number) => {
@@ -173,7 +170,7 @@ export default function MitgliederPage() {
   const startAdd = () => { 
       setShowForm(true); 
       setNewMember(initialNewMember); 
-      // Bei Neu: Scrollen wir lieber nach oben zum Formular
+      // Bei "Neu" scrollen wir nach oben, damit man das Formular sieht
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
@@ -190,12 +187,12 @@ export default function MitgliederPage() {
       city_of_residence: member.city_of_residence || "",
       isEditing: true, editId: member.id,
     });
-    // WICHTIG: Kein Scrollen! Das Formular ist sticky und kommt ins Bild.
+    // WICHTIG: KEIN Scrollen! Da das Formular "Sticky" ist, erscheint es dort, wo du bist.
   };
 
   const handleSaveMember = async (e: React.FormEvent) => {
     e.preventDefault(); 
-    // KEIN setLoading(true) hier, damit die Liste nicht verschwindet!
+    // Wir setzen loading NICHT global true, um das Springen zu vermeiden (nur Button-State könnte man ändern)
 
     const dataToSave = {
       first_name: newMember.first_name, last_name: newMember.last_name, email: newMember.email || null,
@@ -204,7 +201,6 @@ export default function MitgliederPage() {
       role: newMember.role, status: newMember.status, city_of_residence: newMember.city_of_residence || null, 
     };
     let error = null;
-    
     if (newMember.isEditing && newMember.editId) {
       const result = await supabase.from("members").update(dataToSave).eq("id", newMember.editId);
       error = result.error;
@@ -212,31 +208,24 @@ export default function MitgliederPage() {
       const result = await supabase.from("members").insert([dataToSave]);
       error = result.error;
     }
-
-    if (error) {
-        showNotification(`Fehler: ${error.message}`, 'error');
-    } else { 
+    if (error) showNotification(`Fehler: ${error.message}`, 'error');
+    else { 
         showNotification(`Gespeichert.`, 'success'); 
         setShowForm(false); 
         setNewMember(initialNewMember); 
-        // Hintergrund-Refresh (true), damit nichts springt
-        fetchMembers(true); 
+        fetchMembers(true); // Hintergrund-Refresh (kein Springen)
     }
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm("Wirklich löschen?")) {
-      // Optimistisches Update: Sofort aus der lokalen Liste entfernen für Gefühl der Geschwindigkeit
-      setMembers(prev => prev.filter(m => m.id !== id));
-      
+      setMembers(prev => prev.filter(m => m.id !== id)); // Optimistisch löschen
       const { error } = await supabase.from("members").delete().eq("id", id);
       if (error) {
-           showNotification("Fehler: " + error.message, 'error');
-           fetchMembers(true); // Rollback/Sync bei Fehler
+          showNotification("Fehler: " + error.message, 'error');
+          fetchMembers(true); // Rollback
       } else { 
           showNotification("Gelöscht.", 'success'); 
-          // Kein Fetch nötig, da wir es schon lokal entfernt haben, aber zur Sicherheit Sync im Hintergrund
-          fetchMembers(true);
       }
     }
   };
@@ -256,7 +245,7 @@ export default function MitgliederPage() {
   const renderTable = (data: Member[], title: string, icon: React.ReactNode, colorClass: string) => (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden mb-8 w-full">
         <div className={`px-6 py-4 border-b border-slate-100 dark:border-slate-700 ${colorClass}`}>
-            <h3 className="font-bold text-slate-700 dark:text-slate-200 uppercase text-xs tracking-wider flex items-center gap-2">
+            <h3 className="font-bold text-slate-700 dark:text-slate-300 uppercase text-xs tracking-wider flex items-center gap-2">
                 {icon} {title} ({data.length})
             </h3>
         </div>
@@ -290,7 +279,7 @@ export default function MitgliederPage() {
                         <div className="flex gap-2 text-[10px]">
                             {m.role !== 'member' && <span className="text-slate-500 uppercase">{m.role === 'board' ? 'Vorstand' : m.role}</span>}
                             {m.status === 'guest' && <span className="text-blue-500 font-bold">Gast</span>}
-                            {m.left_at && <span className="text-red-400">Ausgetreten: {leftYear}</span>}
+                            {m.left_at && <span className="text-red-400">Austritt: {leftYear}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -327,26 +316,51 @@ export default function MitgliederPage() {
 
   return (
     <div className="max-w-full mx-auto p-4 sm:p-8 print:p-0">
-      {/* PRINT ... */}
       <div className="print:hidden">
-        {/* Header ... */}
-        {/* Stats ... */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Mitgliederverwaltung</h1>
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+               <span className="text-xs font-bold text-slate-500 px-2 uppercase">Jahr:</span>
+               <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white font-bold rounded px-2 py-1 focus:outline-none">{[currentYear, currentYear-1, currentYear-2].map(y => <option key={y} value={y}>{y}</option>)}</select>
+            </div>
+        </div>
+        
+        {notification && <div className={`p-3 mb-4 rounded-lg text-sm font-medium ${notification.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{notification.message}</div>}
+        
+        <div className="mb-8 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center"><p className="text-2xl font-bold text-primary-600">{statsHeader.totalMembers}</p><p className="text-xs text-slate-500 uppercase">Mitglieder</p></div>
+            <div className="text-center"><p className="text-2xl font-bold text-green-600">{statsHeader.garchingMembers}</p><p className="text-xs text-slate-500 uppercase">aus Garching</p></div>
+            <div className="text-center"><p className="text-2xl font-bold text-blue-500">{statsHeader.guestCount}</p><p className="text-xs text-slate-500 uppercase">Registrierte Gäste</p></div>
+            <div className="text-center flex flex-col items-center justify-center"><button onClick={handleExportPDF} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm font-medium"><FaFilePdf /> PDF Export</button></div>
+        </div>
 
-        {/* FORMULAR: Sticky mit Top-Abstand für Navbar */}
+        {/* FORMULAR (Sticky & Always Visible) */}
         {showForm && canEdit && (
-          <div className="mb-8 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg sticky top-20 z-40 max-h-[80vh] overflow-y-auto">
+          <div className="mb-8 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg sticky top-16 z-50 max-h-[80vh] overflow-y-auto border-t-4 border-t-primary-500">
             <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-2"><h3 className="font-bold text-lg text-slate-900 dark:text-white">{newMember.isEditing ? "Bearbeiten" : "Neu"}</h3><button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><FaTimes/></button></div>
             <form onSubmit={handleSaveMember} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <input required placeholder="Vorname" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.first_name} onChange={e => setNewMember({...newMember, first_name: e.target.value})} />
               <input required placeholder="Nachname" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.last_name} onChange={e => setNewMember({...newMember, last_name: e.target.value})} />
+              
               <div className="relative"><input type="date" className="p-2 w-full rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.birth_date} onChange={e => setNewMember({...newMember, birth_date: e.target.value})} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">Geb.</span></div>
               <div className="relative"><input type="date" className="p-2 w-full rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.joined_at} onChange={e => setNewMember({...newMember, joined_at: e.target.value})} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">Eintritt</span></div>
               <div className="relative"><input type="date" className="p-2 w-full rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.left_at} onChange={e => setNewMember({...newMember, left_at: e.target.value})} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">Austritt</span></div>
+
               <input placeholder="E-Mail" type="email" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} />
               <input required placeholder="Wohnort" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.city_of_residence} onChange={e => setNewMember({...newMember, city_of_residence: e.target.value})} />
+              
               <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value as any})}><option value="member">Mitglied</option><option value="board">Vorstand</option><option value="coach">Trainer</option><option value="admin">Admin</option></select>
-              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.status} onChange={e => setNewMember({...newMember, status: e.target.value as any})}><option value="active">Aktiv</option><option value="passive">Passiv</option><option value="guest">Gast (Extern)</option><option value="left">Ausgeschieden</option></select>
-              <div className="md:col-span-3 flex justify-end gap-2 mt-2"><button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded">Abbrechen</button><button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 flex items-center gap-1" disabled={loading}><FaSave /> Speichern</button></div>
+              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.status} onChange={e => setNewMember({...newMember, status: e.target.value as any})}>
+                <option value="active">Aktiv</option>
+                <option value="passive">Passiv</option>
+                <option value="guest">Gast (Extern)</option>
+                <option value="left">Ausgeschieden</option>
+              </select>
+
+              <div className="md:col-span-3 flex justify-end gap-2 mt-2">
+                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded flex items-center gap-1"><FaTimes /> Abbrechen</button>
+                <button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 flex items-center gap-1" disabled={loading}><FaSave /> Speichern</button>
+              </div>
             </form>
           </div>
         )}
@@ -356,14 +370,23 @@ export default function MitgliederPage() {
           {canEdit && <button onClick={startAdd} className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"><FaUserPlus /> Neu</button>}
         </div>
 
+        {/* TABELLEN (Mit Scroll-Container) */}
         {loading ? <p className="text-center p-12">Lade...</p> : renderTable(currentMembers, "Mitgliederliste", <FaUsers/>, "bg-slate-50/50 dark:bg-slate-800/50")}
-        {!loading && showGuests && guestMembers.length > 0 && renderTable(guestMembers, "Gäste / Externe", <FaUserTag/>, "bg-blue-50/50 dark:bg-blue-900/10")}
+
+        {!loading && showGuests && guestMembers.length > 0 && (
+            renderTable(guestMembers, "Gäste / Externe", <FaUserTag/>, "bg-blue-50/50 dark:bg-blue-900/10")
+        )}
+
         {!loading && leftMembers.length > 0 && (
             <div className="mt-12 border-t border-slate-200 dark:border-slate-800 pt-8">
-                <button onClick={() => setShowLeftMembers(!showLeftMembers)} className="flex items-center gap-2 mx-auto text-slate-500 hover:text-primary-600 font-medium transition-colors mb-6 px-6 py-2 rounded-full bg-slate-100 dark:bg-slate-800">{showLeftMembers ? <FaChevronUp/> : <FaChevronDown/>}{showLeftMembers ? "Ausgeschiedene ausblenden" : `Ausgeschiedene anzeigen (${leftMembers.length})`}</button>
+                <button onClick={() => setShowLeftMembers(!showLeftMembers)} className="flex items-center gap-2 mx-auto text-slate-500 hover:text-primary-600 font-medium transition-colors mb-6 px-6 py-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                    {showLeftMembers ? <FaChevronUp/> : <FaChevronDown/>}
+                    {showLeftMembers ? "Ausgeschiedene ausblenden" : `Ausgeschiedene anzeigen (${leftMembers.length})`}
+                </button>
                 {showLeftMembers && <div className="animate-in fade-in slide-in-from-top-4 duration-300">{renderTable(leftMembers, "Ausgeschiedene", <FaUserSlash className="text-red-400"/>, "bg-red-50/50 dark:bg-red-900/10")}</div>}
             </div>
         )}
+
       </div>
     </div>
   );
