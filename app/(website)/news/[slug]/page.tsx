@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Metadata } from "next"; // Wichtig für SEO
 import { PortableText } from "@portabletext/react";
-// Wir nutzen den sicheren Alias @ für Importe
+// Sichere Imports via Alias
 import { client } from "@/sanity/client"; 
 import { urlFor } from "@/sanity/image";
 import Gallery from "@/components/Gallery"; 
@@ -58,7 +59,33 @@ async function getPost(slug: string) {
   return client.fetch(query, { slug }, { next: { revalidate: 60 } });
 }
 
-// 3. Konfiguration für den Text-Editor (PortableText)
+// 3. Dynamische SEO Metadaten generieren
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPost(slug);
+
+  if (!post) {
+    return {
+      title: "Artikel nicht gefunden",
+    };
+  }
+
+  const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).height(630).url() : null;
+
+  return {
+    title: post.title,
+    description: post.body ? post.body[0]?.children[0]?.text?.substring(0, 160) : "Neuigkeiten der Garchinger Stadtkicker",
+    openGraph: {
+      title: post.title,
+      description: post.body ? post.body[0]?.children[0]?.text?.substring(0, 160) : undefined,
+      type: "article",
+      publishedTime: post.publishedAt,
+      images: imageUrl ? [{ url: imageUrl }] : [],
+    },
+  };
+}
+
+// 4. Konfiguration für den Text-Editor (PortableText)
 const ptComponents = {
   types: {
     // Datei-Download im Text
@@ -98,7 +125,7 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
 
   const dateString = post.publishedAt 
     ? new Date(post.publishedAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) 
-    : '';
+    : 'Datum unbekannt';
 
   // Bilder für die Galerie vorbereiten
   const galleryImages = post.gallery?.map((img: any) => ({

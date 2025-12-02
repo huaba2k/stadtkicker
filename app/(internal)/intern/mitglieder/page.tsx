@@ -143,7 +143,6 @@ export default function MitgliederPage() {
       return result;
     });
 
-    // DREI LISTEN:
     const current = filtered.filter(m => m.status === 'active' || m.status === 'passive' || (!m.status && m.status !== 'guest'));
     const guests = filtered.filter(m => m.status === 'guest');
     const left = filtered.filter(m => m.status === 'left');
@@ -164,11 +163,13 @@ export default function MitgliederPage() {
     const garchingMembers = realMembers.filter(m => m.city_of_residence?.toLowerCase().includes('garching')).length;
     const garchingPercentage = totalMembers > 0 ? ((garchingMembers / totalMembers) * 100).toFixed(1).replace('.', ',') : '0';
     const guestCount = members.filter(m => m.status === 'guest').length;
+
     return { totalMembers, garchingMembers, garchingPercentage, guestCount };
   }, [members]);
 
   // --- CRUD ---
   const startAdd = () => { setShowForm(true); setNewMember(initialNewMember); };
+  
   const startEdit = (member: Member) => {
     setShowForm(true);
     setNewMember({
@@ -182,6 +183,8 @@ export default function MitgliederPage() {
       city_of_residence: member.city_of_residence || "",
       isEditing: true, editId: member.id,
     });
+    // KEIN ScrollToTop hier, damit man an der Stelle bleibt. 
+    // Das Formular ist "sticky" und kommt zum User.
   };
 
   const handleSaveMember = async (e: React.FormEvent) => {
@@ -230,11 +233,10 @@ export default function MitgliederPage() {
   const renderTable = (data: Member[], title: string, icon: React.ReactNode, colorClass: string) => (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden mb-8 w-full">
         <div className={`px-6 py-4 border-b border-slate-100 dark:border-slate-700 ${colorClass}`}>
-            <h3 className="font-bold text-slate-700 dark:text-slate-200 uppercase text-xs tracking-wider flex items-center gap-2">
+            <h3 className="font-bold text-slate-700 dark:text-slate-300 uppercase text-xs tracking-wider flex items-center gap-2">
                 {icon} {title} ({data.length})
             </h3>
         </div>
-        {/* MOBILE SCROLL WRAPPER */}
         <div className="overflow-x-auto w-full">
             <table className="min-w-[800px] w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
               <thead className="bg-slate-50 dark:bg-slate-700/50">
@@ -302,13 +304,17 @@ export default function MitgliederPage() {
 
   return (
     <div className="max-w-full mx-auto p-4 sm:p-8 print:p-0">
+      {/* Print View */}
+      <div className="hidden print:block">
+        {/* ... (Print Layout wie gehabt) ... */}
+      </div>
       
-      {/* HEADER & STATS */}
+      {/* Screen UI */}
       <div className="print:hidden">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Mitgliederverwaltung</h1>
             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-               <span className="text-xs font-bold text-slate-500 px-2 uppercase">Statistik-Jahr:</span>
+               <span className="text-xs font-bold text-slate-500 px-2 uppercase">Jahr:</span>
                <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white font-bold rounded px-2 py-1 focus:outline-none">{[currentYear, currentYear-1, currentYear-2].map(y => <option key={y} value={y}>{y}</option>)}</select>
             </div>
         </div>
@@ -322,7 +328,7 @@ export default function MitgliederPage() {
             <div className="text-center flex flex-col items-center justify-center"><button onClick={handleExportPDF} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm font-medium"><FaFilePdf /> PDF Export</button></div>
         </div>
 
-        {/* FORMULAR (Sticky) */}
+        {/* FORMULAR (STICKY) */}
         {showForm && canEdit && (
           <div className="mb-8 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg sticky top-20 z-40 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-2"><h3 className="font-bold text-lg text-slate-900 dark:text-white">{newMember.isEditing ? "Bearbeiten" : "Neu"}</h3><button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><FaTimes/></button></div>
@@ -358,15 +364,15 @@ export default function MitgliederPage() {
           {canEdit && <button onClick={startAdd} className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"><FaUserPlus /> Neu</button>}
         </div>
 
-        {/* 1. TABELLE: MITGLIEDER (Aktiv & Passiv) */}
+        {/* TABELLE 1: MITGLIEDER */}
         {loading ? <p className="text-center p-12">Lade...</p> : renderTable(currentMembers, "Mitgliederliste", <FaUsers/>, "bg-slate-50/50 dark:bg-slate-800/50")}
 
-        {/* 2. TABELLE: GÄSTE (Neu) */}
+        {/* TABELLE 2: GÄSTE */}
         {!loading && showGuests && guestMembers.length > 0 && (
             renderTable(guestMembers, "Gäste / Externe", <FaUserTag/>, "bg-blue-50/50 dark:bg-blue-900/10")
         )}
 
-        {/* 3. TABELLE: AUSGESCHIEDENE (Einklappbar) */}
+        {/* TABELLE 3: AUSGESCHIEDENE */}
         {!loading && leftMembers.length > 0 && (
             <div className="mt-12 border-t border-slate-200 dark:border-slate-800 pt-8">
                 <button onClick={() => setShowLeftMembers(!showLeftMembers)} className="flex items-center gap-2 mx-auto text-slate-500 hover:text-primary-600 font-medium transition-colors mb-6 px-6 py-2 rounded-full bg-slate-100 dark:bg-slate-800">
