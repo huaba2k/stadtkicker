@@ -53,12 +53,12 @@ export const post = defineType({
       type: 'image',
       options: { hotspot: true },
     }),
-    
-    // --- CONTENT BODY (Hier war der Fehler) ---
+
+    // --- BODY (Hier war der Fehler wahrscheinlich) ---
     defineField({
       name: 'body',
       title: 'Inhalt',
-      type: 'array', 
+      type: 'array',
       of: [
         // 1. Standard Text
         defineArrayMember({ 
@@ -128,9 +128,9 @@ export const post = defineType({
             }
         })
       ],
-    }),
+    }), // <--- WICHTIG: Body Field geschlossen
 
-    // --- ANDERE FELDER ---
+    // --- TURNIER TABELLEN ---
     defineField({
       name: 'tournamentTables',
       title: 'Turniergruppen & Ergebnisse',
@@ -148,9 +148,10 @@ export const post = defineType({
       ]
     }),
 
+    // --- GALERIE ---
     defineField({
       name: 'gallery',
-      title: 'Bildergalerie',
+      title: 'Bildergalerie (am Ende)',
       type: 'array',
       options: {
         layout: 'grid', 
