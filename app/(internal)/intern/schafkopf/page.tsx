@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { supabase } from "../../../../lib/supabase";
 import { Member } from "../../../../types/supabase";
 import { client } from "../../../../sanity/client";
-import { urlFor } from "../../../../sanity/image";
-import { FaTrophy, FaCrown, FaNewspaper, FaArrowRight } from "react-icons/fa";
+import { FaTrophy, FaCrown, FaNewspaper } from "react-icons/fa";
+import NewsList from "../../../../components/NewsList"; // Die neue gruppierte Liste
 
 type SchafkopfStat = {
   member: Member;
@@ -31,7 +29,7 @@ export default function SchafkopfPage() {
 
       const eventIds = events?.map(e => e.id) || [];
 
-      // 2. Anwesenheiten dazu laden (Wer war da?)
+      // 2. Anwesenheiten dazu laden
       // Wir zählen 'active', 'passive' und 'helper' als Teilnahme
       const { data: attendance } = await supabase
         .from('attendance')
@@ -53,15 +51,16 @@ export default function SchafkopfPage() {
 
       const rankedList = (members || [])
         .map(m => ({ member: m, count: counts[m.id] || 0 }))
-        .filter(item => item.count > 0) // Nur wer schon mal da war anzeigen
+        .filter(item => item.count > 0) // Nur wer schon mal da war
         .sort((a, b) => b.count - a.count); // Meiste Einsätze oben
 
       setRanking(rankedList as SchafkopfStat[]);
 
-      // 5. News laden (Sanity - Kategorie: schafkopf)
+      // 5. News laden (Sanity)
+      // Wir laden ALLE Posts der Kategorie Schafkopf (auch öffentliche), sortiert nach Datum
       try {
-        const newsQuery = `*[_type == "post" && category == "schafkopf" && isInternal == true] | order(publishedAt desc) {
-          _id, title, slug, publishedAt, mainImage,
+        const newsQuery = `*[_type == "post" && category == "schafkopf"] | order(publishedAt desc) {
+          _id, title, slug, publishedAt, mainImage, isInternal, category,
           "excerpt": body[0].children[0].text
         }`;
         const newsData = await client.fetch(newsQuery);
@@ -76,18 +75,14 @@ export default function SchafkopfPage() {
     loadData();
   }, []);
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-500">
-       Lade Schafkopf-Daten...
-    </div>
-  );
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-500">Lade Schafkopf-Daten...</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-8">
       
       {/* Header */}
       <div className="mb-12 text-center">
-        <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center justify-center gap-3">
+        <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center justify-center gap-3">
           <span className="text-emerald-600"><FaTrophy /></span> Schafkopf Runde
         </h1>
         <p className="text-slate-500 mt-2 dark:text-slate-400">Rangliste, Ergebnisse und Berichte unserer Kartler.</p>
@@ -130,7 +125,7 @@ export default function SchafkopfPage() {
           </div>
         </div>
 
-        {/* RECHTE SPALTE: NEWS & BERICHTE */}
+        {/* RECHTE SPALTE: NEWS & BERICHTE (Jahresarchiv) */}
         <div className="lg:col-span-2">
            <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-6 flex items-center gap-2">
              <FaNewspaper className="text-slate-400"/> Berichte & Ergebnisse
@@ -141,44 +136,8 @@ export default function SchafkopfPage() {
                Keine Berichte vorhanden.
              </div>
            ) : (
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-               {news.map((post) => (
-                 <Link 
-                   key={post._id} 
-                   href={`/intern/news/${post.slug.current}`}
-                   className="group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md transition-all"
-                 >
-                   <div className="relative h-40 bg-slate-200 dark:bg-slate-700">
-                      {post.mainImage ? (
-                        <Image 
-                          src={urlFor(post.mainImage).width(400).height(250).url()} 
-                          alt={post.title} 
-                          fill 
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-slate-400 bg-slate-100 dark:bg-slate-800">Kein Bild</div>
-                      )}
-                      <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/60 to-transparent p-4">
-                         <span className="text-white text-xs font-bold bg-emerald-600 px-2 py-1 rounded-md shadow-sm">
-                           {new Date(post.publishedAt).toLocaleDateString('de-DE')}
-                         </span>
-                      </div>
-                   </div>
-                   <div className="p-5">
-                      <h4 className="font-bold text-lg text-slate-900 dark:text-white mb-2 group-hover:text-emerald-600 transition-colors line-clamp-2">
-                        {post.title}
-                      </h4>
-                      {post.excerpt && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3 mb-4">{post.excerpt}...</p>
-                      )}
-                      <span className="text-sm font-semibold text-emerald-600 flex items-center gap-1">
-                        Bericht lesen <FaArrowRight className="text-xs"/>
-                      </span>
-                   </div>
-                 </Link>
-               ))}
-             </div>
+             // Hier nutzen wir die intelligente Liste, die nach Jahren gruppiert
+             <NewsList posts={news} />
            )}
         </div>
 
