@@ -65,7 +65,7 @@ export default function KontaktPage() {
           {/* Linke Spalte: Infos */}
           <div className="space-y-8">
              <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Deine Ansprechpartner</h3>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Unser Trainingsgelände:</h3>
                 <div className="space-y-6">
                    <div className="flex items-start gap-4">
                       <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -73,7 +73,7 @@ export default function KontaktPage() {
                       </div>
                       <div>
                          <h4 className="font-bold text-slate-900 dark:text-white">Sportgelände Garmin-Stadion am See</h4>
-                         <p className="text-slate-600 dark:text-slate-400">Am See 8<br/>85748 Garching bei München</p>
+                         <p className="text-slate-600 dark:text-slate-400">Am See 8<br/>85748 Garching bei München<br/>(bei VfR Garching von 1921 e.V.)</p>
                       </div>
                    </div>
 
