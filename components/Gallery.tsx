@@ -21,93 +21,105 @@ export default function Gallery({ images }: Props) {
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   
-  // --- SWIPE STATE ---
+  // --- SWIPE & ANIMATION STATE ---
   const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchCurrent, setTouchCurrent] = useState<number | null>(null);
+  const [currentTranslate, setCurrentTranslate] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false); // Für die CSS-Transition nach dem Loslassen
 
   const visibleImages = images.slice(0, visibleCount);
   const hasMore = visibleCount < images.length;
 
   const loadMore = () => setVisibleCount((prev) => prev + BATCH_SIZE);
-  const openLightbox = (index: number) => setLightboxIndex(index);
+  
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setCurrentTranslate(0);
+    setIsDragging(false);
+    setIsAnimating(false);
+  };
+  
   const closeLightbox = () => {
     setLightboxIndex(null);
-    resetSwipe();
+    setCurrentTranslate(0);
   };
 
-  // --- NAVIGATION ---
-  const showNext = () => {
-    if (lightboxIndex !== null && lightboxIndex < images.length - 1) {
-      setLightboxIndex(lightboxIndex + 1);
+  // --- NAVIGATION LOGIK ---
+  
+  // Wechselt das Bild (mit kurzer Wartezeit für die Animation)
+  const changeImage = (direction: 'next' | 'prev') => {
+    if (lightboxIndex === null) return;
+
+    const newIndex = direction === 'next' ? lightboxIndex + 1 : lightboxIndex - 1;
+    
+    // Bounds check
+    if (newIndex < 0 || newIndex >= images.length) {
+      // Ende erreicht: Zurückfedern
+      setIsAnimating(true);
+      setCurrentTranslate(0);
+      setTimeout(() => setIsAnimating(false), 300);
+      return;
     }
-    resetSwipe();
-  };
 
-  const showPrev = () => {
-    if (lightboxIndex !== null && lightboxIndex > 0) {
-      setLightboxIndex(lightboxIndex - 1);
-    }
-    resetSwipe();
-  };
+    // 1. Bild rausfliegen lassen
+    setIsAnimating(true);
+    setCurrentTranslate(direction === 'next' ? -window.innerWidth : window.innerWidth);
 
-  const resetSwipe = () => {
-    setTouchStart(null);
-    setTouchCurrent(null);
-    setIsDragging(false);
+    // 2. Nach Animation (300ms) Index tauschen und resetten
+    setTimeout(() => {
+      // Index wechseln
+      setLightboxIndex(newIndex);
+      // Position sofort (ohne Animation) auf die andere Seite setzen oder direkt in die Mitte?
+      // Wir setzen es auf 0 zurück, aber müssen kurz die Animation ausschalten, damit es nicht "zurückfliegt" sichtbar
+      setIsAnimating(false); 
+      setCurrentTranslate(0);
+    }, 300);
   };
 
   // --- TOUCH HANDLER ---
+
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
-    setTouchCurrent(e.targetTouches[0].clientX);
+    setIsAnimating(false); // Animation stopppen, damit wir direkt Kontrolle haben
     setIsDragging(true);
+    setTouchStart(e.targetTouches[0].clientX);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    setTouchCurrent(e.targetTouches[0].clientX);
+    if (!isDragging || touchStart === null) return;
+    const currentX = e.targetTouches[0].clientX;
+    const diff = currentX - touchStart;
+    setCurrentTranslate(diff); // 1:1 Bewegung
   };
 
   const onTouchEnd = () => {
-    if (touchStart !== null && touchCurrent !== null) {
-      const distance = touchStart - touchCurrent;
-      const threshold = 50; // Mindestdistanz für Swipe
+    setIsDragging(false);
+    if (touchStart === null) return;
 
-      if (distance > threshold) {
-        // Nach LINKS gewischt -> Nächstes Bild
-        if (lightboxIndex !== null && lightboxIndex < images.length - 1) {
-            showNext();
-        } else {
-            resetSwipe(); // Ende der Galerie erreicht, zurückspringen
-        }
-      } else if (distance < -threshold) {
-        // Nach RECHTS gewischt -> Vorheriges Bild
-        if (lightboxIndex !== null && lightboxIndex > 0) {
-            showPrev();
-        } else {
-            resetSwipe(); // Anfang erreicht, zurückspringen
-        }
-      } else {
-        // Nicht weit genug gewischt -> Reset
-        resetSwipe();
-      }
+    const threshold = 80; // Ab wie viel Pixel soll gewechselt werden?
+
+    if (currentTranslate < -threshold) {
+      // Nach Links gewischt -> Nächstes Bild
+      changeImage('next');
+    } else if (currentTranslate > threshold) {
+      // Nach Rechts gewischt -> Vorheriges Bild
+      changeImage('prev');
     } else {
-        resetSwipe();
+      // Nicht weit genug -> Zurück zur Mitte federn
+      setIsAnimating(true);
+      setCurrentTranslate(0);
+      setTimeout(() => setIsAnimating(false), 300);
     }
+    
+    setTouchStart(null);
   };
-
-  // Berechne die aktuelle Verschiebung für die Animation
-  const translateX = isDragging && touchStart !== null && touchCurrent !== null 
-    ? touchCurrent - touchStart 
-    : 0;
 
   // Tastatur-Events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (lightboxIndex === null) return;
       if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowRight') showNext();
-      if (e.key === 'ArrowLeft') showPrev();
+      if (e.key === 'ArrowRight') changeImage('next');
+      if (e.key === 'ArrowLeft') changeImage('prev');
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -118,7 +130,7 @@ export default function Gallery({ images }: Props) {
   return (
     <div className="space-y-8">
       
-      {/* GRID ANSICHT (Vorschau) */}
+      {/* GRID ANSICHT */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {visibleImages.map((img, idx) => (
           <div 
@@ -151,9 +163,10 @@ export default function Gallery({ images }: Props) {
 
       {/* LIGHTBOX (Vollbild) */}
       {lightboxIndex !== null && (
-        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center touch-none">
-          
-          {/* Close Button */}
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center touch-none"
+          onClick={closeLightbox}
+        >
           <button onClick={closeLightbox} className="absolute top-4 right-4 text-white/70 hover:text-white p-3 z-[120] bg-black/20 rounded-full">
             <FaTimes size={28} />
           </button>
@@ -164,37 +177,44 @@ export default function Gallery({ images }: Props) {
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onClick={(e) => e.stopPropagation()} // Klick auf Bild soll Lightbox NICHT schließen
           >
-             {/* Das Bild selbst */}
+             {/* Das Bild */}
              <div 
-                className="relative w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center p-2 transition-transform duration-75 ease-out"
-                style={{ transform: `translateX(${translateX}px)` }} // Live-Bewegung
+                className="relative w-full h-full max-w-6xl max-h-[85vh] flex items-center justify-center p-2"
+                style={{ 
+                    transform: `translateX(${currentTranslate}px)`,
+                    // Wenn wir animieren (loslassen), dauert es 300ms. Wenn wir draggen, ist es sofort (0s).
+                    transition: isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
+                    cursor: isDragging ? 'grabbing' : 'grab'
+                }}
              >
                 <Image
                   src={images[lightboxIndex].src}
                   alt="Vollbild"
                   fill
-                  className="object-contain select-none pointer-events-none" // Wichtig für Swipe
+                  className="object-contain select-none pointer-events-none" // Verhindert Browser-Drag
                   quality={90}
                   priority
+                  draggable={false}
                 />
              </div>
           </div>
 
           {/* Navigation Pfeile (Desktop) */}
           {lightboxIndex > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); showPrev(); }} className="hidden md:block absolute left-4 text-white/70 hover:text-white p-4 bg-black/20 hover:bg-black/50 rounded-full transition-all z-[110]">
+            <button onClick={(e) => { e.stopPropagation(); changeImage('prev'); }} className="hidden md:block absolute left-4 text-white/70 hover:text-white p-4 bg-black/20 hover:bg-black/50 rounded-full transition-all z-[110]">
               <FaChevronLeft size={32} />
             </button>
           )}
           {lightboxIndex < images.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); showNext(); }} className="hidden md:block absolute right-4 text-white/70 hover:text-white p-4 bg-black/20 hover:bg-black/50 rounded-full transition-all z-[110]">
+            <button onClick={(e) => { e.stopPropagation(); changeImage('next'); }} className="hidden md:block absolute right-4 text-white/70 hover:text-white p-4 bg-black/20 hover:bg-black/50 rounded-full transition-all z-[110]">
               <FaChevronRight size={32} />
             </button>
           )}
 
           {/* Counter */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/90 text-sm font-bold bg-black/50 px-4 py-1.5 rounded-full pointer-events-none">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/90 text-sm font-bold bg-black/50 px-4 py-1.5 rounded-full pointer-events-none z-[110]">
             {lightboxIndex + 1} / {images.length}
           </div>
         </div>
