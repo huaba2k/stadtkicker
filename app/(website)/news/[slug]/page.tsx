@@ -1,16 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
 import { PortableText } from "@portabletext/react";
-// Wir nutzen den sicheren Alias @ für Importe
-import { client } from "@/sanity/client"; 
-import { urlFor } from "@/sanity/image";
-import Gallery from "@/components/Gallery"; 
-import FileDownload from "@/components/FileDownload"; 
-import YouTubeEmbed from "@/components/YouTubeEmbed";
-import InfoBox from "@/components/InfoBox";
 
-// 1. Statische Pfade generieren (nur für öffentliche Posts)
+// Wir nutzen relative Pfade für maximale Sicherheit beim Build
+import { client } from "../../../../sanity/client"; 
+import { urlFor } from "../../../../sanity/image";
+import Gallery from "../../../../components/Gallery"; 
+import FileDownload from "../../../../components/FileDownload"; 
+import YouTubeEmbed from "../../../../components/YouTubeEmbed";
+import InfoBox from "../../../../components/InfoBox";
+
+// 1. Statische Pfade für öffentliche Posts
 export async function generateStaticParams() {
   const query = `*[_type == "post" && isInternal != true]{ "slug": slug.current }`;
   const posts = await client.fetch(query);
@@ -19,49 +21,70 @@ export async function generateStaticParams() {
 
 // 2. Daten laden
 async function getPost(slug: string) {
-  // WICHTIG: Filter && isInternal != true verhindert Zugriff auf interne News
+  // Filter: isInternal != true (Sicherheit)
   const query = `*[_type == "post" && slug.current == $slug && isInternal != true][0] {
     title, 
     mainImage, 
     publishedAt, 
     category,
     
-    // Turnier-Tabellen
+    // Legacy: Turnier-Tabellen
     tournamentTables[] { title, table },
     
-    // Inhalt (Body) mit erweiterten Komponenten
+    // Legacy: Galerie am Ende
+    gallery,
+
+    // Body mit allen neuen Komponenten
     body[] {
       ...,
       _type == 'sectionFile' => { 
-        title, 
-        description, 
-        file { 
-          asset-> { url, size, extension } 
-        } 
+        title, description, 
+        file { asset-> { url, size, extension } } 
       },
       _type == 'sectionVideo' => { 
-        url, 
-        caption 
+        url, caption 
       },
       _type == 'sectionInfo' => { 
-        title, 
-        text, 
-        type 
+        title, text, type 
+      },
+      _type == 'sectionHero' => {
+        caption, image
+      },
+      _type == 'galleryRef' => {
+        "galleryData": @-> { title, images }
       }
-    },
-
-    // Galerie
-    gallery
+    }
   }`;
   
   // ISR: Cache für 60 Sekunden
   return client.fetch(query, { slug }, { next: { revalidate: 60 } });
 }
 
-// 3. Konfiguration für den Text-Editor (PortableText)
+// 3. SEO Metadaten
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPost(slug);
+
+  if (!post) return { title: "Artikel nicht gefunden" };
+
+  const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).height(630).url() : null;
+
+  return {
+    title: post.title,
+    description: "Neuigkeiten der Garchinger Stadtkicker",
+    openGraph: {
+      title: post.title,
+      type: "article",
+      publishedTime: post.publishedAt,
+      images: imageUrl ? [{ url: imageUrl }] : [],
+    },
+  };
+}
+
+// 4. Komponenten für den Text-Editor (PortableText)
 const ptComponents = {
   types: {
-    // Datei-Download im Text
+    // Datei-Download
     sectionFile: ({ value }: any) => (
       <FileDownload 
         title={value.title} 
@@ -71,21 +94,58 @@ const ptComponents = {
         extension={value.file?.asset?.extension}
       />
     ),
-    // YouTube Video im Text
+    // YouTube Video
     sectionVideo: ({ value }: any) => (
       <YouTubeEmbed 
         url={value.url} 
         caption={value.caption} 
       />
     ),
-    // Info-Box im Text
+    // Info-Box
     sectionInfo: ({ value }: any) => (
       <InfoBox 
         title={value.title} 
         text={value.text} 
         type={value.type} 
       />
-    )
+    ),
+    // Hero Bild im Text
+    sectionHero: ({ value }: any) => (
+      <div className="my-10 not-prose">
+        <div className="relative w-full h-[300px] md:h-[500px] rounded-2xl overflow-hidden shadow-md">
+          {value.image && (
+            <Image 
+              src={urlFor(value.image).url()} 
+              alt={value.caption || 'Bild'} 
+              fill 
+              className="object-cover"
+            />
+          )}
+        </div>
+        {value.caption && <p className="text-center text-sm text-slate-500 mt-2 italic">{value.caption}</p>}
+      </div>
+    ),
+    // Galerie im Text
+    galleryRef: ({ value }: any) => {
+      if (!value.galleryData?.images) return null;
+      const images = value.galleryData.images.map((img: any) => ({
+          src: urlFor(img).url(), 
+          width: 1200, 
+          height: 800, 
+          alt: "Galeriebild"
+      }));
+      
+      return (
+        <div className="my-12 not-prose p-6 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            {value.galleryData.title && (
+              <h4 className="text-xl font-bold mb-6 text-center text-slate-900 dark:text-white">
+                {value.galleryData.title}
+              </h4>
+            )}
+            <Gallery images={images} />
+        </div>
+      );
+    }
   }
 };
 
@@ -93,15 +153,14 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const post = await getPost(slug);
 
-  // Wenn nicht gefunden oder intern -> 404
   if (!post) return notFound();
 
   const dateString = post.publishedAt 
     ? new Date(post.publishedAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) 
-    : '';
+    : 'Datum unbekannt';
 
-  // Bilder für die Galerie vorbereiten
-  const galleryImages = post.gallery?.map((img: any) => ({
+  // Legacy Galerie (falls am Ende angefügt)
+  const legacyGalleryImages = post.gallery?.map((img: any) => ({
     src: urlFor(img).width(1200).url(), 
     width: 1200, 
     height: 800, 
@@ -146,24 +205,22 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
           ← Zurück zur Übersicht
         </Link>
 
-        {/* Fließtext mit dynamischen Komponenten */}
+        {/* Fließtext mit allen Komponenten */}
         <div className="prose prose-lg dark:prose-invert prose-blue mx-auto mb-12">
           {post.body && <PortableText value={post.body} components={ptComponents} />}
         </div>
 
-        {/* Turnier-Tabellen (Manuell angehängt) */}
+        {/* Legacy: Turnier-Tabellen */}
         {post.tournamentTables && post.tournamentTables.length > 0 && (
           <div className="mb-16 not-prose space-y-12 border-t border-slate-200 dark:border-slate-800 pt-12">
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 pb-2">
-              Turnierverlauf & Ergebnisse
+              Turnierverlauf
             </h3>
             {post.tournamentTables.map((item: any, index: number) => (
               <div key={index}>
                 <h4 className="text-lg font-bold text-primary-600 dark:text-primary-400 mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-primary-500"></span>{item.title}
                 </h4>
-                 
-                 {/* Scrollbare Tabelle für Handy */}
                  {item.table && (
                    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900">
                       <table className="w-full text-sm text-left border-collapse min-w-[600px]">
@@ -196,13 +253,13 @@ export default async function NewsPage({ params }: { params: Promise<{ slug: str
         )}
       </div>
 
-      {/* --- BILDERGALERIE --- */}
-      {galleryImages.length > 0 && (
+      {/* Legacy: Bildergalerie am Ende */}
+      {legacyGalleryImages.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 pt-16 border-t border-slate-200 dark:border-slate-800">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-8 text-center md:text-left">
             Bilderstrecke
           </h2>
-          <Gallery images={galleryImages} />
+          <Gallery images={legacyGalleryImages} />
         </div>
       )}
     </article>

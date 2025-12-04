@@ -2,44 +2,66 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
-// Sichere Imports via Alias
-import { client } from "@/sanity/client"; 
-import { urlFor } from "@/sanity/image";
-import Gallery from "@/components/Gallery"; 
-import FileDownload from "@/components/FileDownload"; 
-import YouTubeEmbed from "@/components/YouTubeEmbed";
-import InfoBox from "@/components/InfoBox";
 
-// 1. Statische Pfade für ALLE Posts generieren (damit interne Links funktionieren)
+// FIX: Relative Pfade 5 Ebenen hoch zum Root-Verzeichnis
+// (page -> [slug] -> news -> intern -> (internal) -> app -> ROOT)
+import { client } from "../../../../../sanity/client"; 
+import { urlFor } from "../../../../../sanity/image";
+import Gallery from "../../../../../components/Gallery"; 
+import FileDownload from "../../../../../components/FileDownload"; 
+import YouTubeEmbed from "../../../../../components/YouTubeEmbed";
+import InfoBox from "../../../../../components/InfoBox";
+
+// 1. Statische Pfade für ALLE Posts (damit auch öffentliche im internen Bereich schnell laden)
 export async function generateStaticParams() {
   const query = `*[_type == "post"]{ "slug": slug.current }`;
   const posts = await client.fetch(query);
   return posts.map((post: any) => ({ slug: post.slug }));
 }
 
-// 2. Post laden (Egal ob intern oder öffentlich)
+// 2. Daten laden (Kein Filter auf isInternal -> Zeigt alles)
 async function getInternalPost(slug: string) {
   const query = `*[_type == "post" && slug.current == $slug][0] {
-    title, mainImage, publishedAt, gallery, isInternal, category,
+    title, 
+    mainImage, 
+    publishedAt, 
+    gallery, 
+    isInternal, 
+    category,
+    
+    // Legacy Tabellen
     tournamentTables[] { title, table },
+    
+    // Body mit allen Komponenten
     body[] {
       ...,
       _type == 'sectionFile' => { 
         title, description, 
         file { asset-> { url, size, extension } } 
       },
-      _type == 'sectionVideo' => { url, caption },
-      _type == 'sectionInfo' => { title, text, type }
+      _type == 'sectionVideo' => { 
+        url, caption 
+      },
+      _type == 'sectionInfo' => { 
+        title, text, type 
+      },
+      _type == 'sectionHero' => {
+        caption, image
+      },
+      _type == 'galleryRef' => {
+        "galleryData": @-> { title, images }
+      }
     }
   }`;
   
-  // ISR Cache: 60 Sekunden
+  // ISR: Cache für 60 Sekunden
   return client.fetch(query, { slug }, { next: { revalidate: 60 } });
 }
 
-// 3. Komponenten für Text-Editor
+// 3. Komponenten für den Text-Editor (PortableText)
 const ptComponents = {
   types: {
+    // Datei-Download
     sectionFile: ({ value }: any) => (
       <FileDownload 
         title={value.title} 
@@ -49,8 +71,58 @@ const ptComponents = {
         extension={value.file?.asset?.extension}
       />
     ),
-    sectionVideo: ({ value }: any) => <YouTubeEmbed url={value.url} caption={value.caption} />,
-    sectionInfo: ({ value }: any) => <InfoBox title={value.title} text={value.text} type={value.type} />
+    // YouTube
+    sectionVideo: ({ value }: any) => (
+      <YouTubeEmbed 
+        url={value.url} 
+        caption={value.caption} 
+      />
+    ),
+    // Info-Box
+    sectionInfo: ({ value }: any) => (
+      <InfoBox 
+        title={value.title} 
+        text={value.text} 
+        type={value.type} 
+      />
+    ),
+    // Hero Bild im Text
+    sectionHero: ({ value }: any) => (
+      <div className="my-10 not-prose">
+        <div className="relative w-full h-[300px] md:h-[500px] rounded-2xl overflow-hidden shadow-md">
+          {value.image && (
+            <Image 
+              src={urlFor(value.image).url()} 
+              alt={value.caption || 'Bild'} 
+              fill 
+              className="object-cover"
+            />
+          )}
+        </div>
+        {value.caption && <p className="text-center text-sm text-slate-500 mt-2 italic">{value.caption}</p>}
+      </div>
+    ),
+    // Galerie im Text
+    galleryRef: ({ value }: any) => {
+      if (!value.galleryData?.images) return null;
+      const images = value.galleryData.images.map((img: any) => ({
+          src: urlFor(img).url(), 
+          width: 1200, 
+          height: 800, 
+          alt: "Galerie"
+      }));
+      
+      return (
+        <div className="my-12 not-prose p-6 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            {value.galleryData.title && (
+              <h4 className="text-xl font-bold mb-6 text-center text-slate-900 dark:text-white">
+                {value.galleryData.title}
+              </h4>
+            )}
+            <Gallery images={images} />
+        </div>
+      );
+    }
   }
 };
 
@@ -60,7 +132,8 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
 
   if (!post) return notFound();
 
-  const galleryImages = post.gallery?.map((img: any) => ({
+  // Legacy Galerie (am Ende)
+  const legacyGalleryImages = post.gallery?.map((img: any) => ({
     src: urlFor(img).width(1200).url(), 
     width: 1200, 
     height: 800, 
@@ -92,17 +165,21 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
         {/* Badges */}
         <div className="absolute top-4 right-4 flex gap-2">
            {post.isInternal && (
-             <div className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">INTERN</div>
+             <div className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm uppercase tracking-wider shadow-red-900/20">
+               INTERN
+             </div>
            )}
            {post.category && (
-              <div className="bg-slate-800/80 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm uppercase backdrop-blur-sm">
+              <div className="bg-slate-800/80 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm uppercase backdrop-blur-sm border border-white/10">
                 {post.category}
               </div>
            )}
         </div>
 
         <div className="absolute bottom-0 left-0 w-full p-8 max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 shadow-sm leading-tight">{post.title}</h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 shadow-sm leading-tight">
+            {post.title}
+          </h1>
           <p className="text-slate-200 text-sm font-medium">{dateString}</p>
         </div>
       </div>
@@ -114,12 +191,12 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
               ← Zurück zur Übersicht
             </Link>
             
+            {/* Fließtext */}
             <div className="prose prose-lg dark:prose-invert prose-blue max-w-none">
-              {/* Inhalt rendern */}
               {post.body && <PortableText value={post.body} components={ptComponents} />}
             </div>
 
-            {/* Turnier-Tabellen (Responsiv) */}
+            {/* Legacy Tabellen */}
             {post.tournamentTables && post.tournamentTables.length > 0 && (
               <div className="mt-12 not-prose space-y-8 border-t border-slate-100 dark:border-slate-700 pt-8">
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">Ergebnisse</h3>
@@ -143,7 +220,9 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
                             {item.table.rows.slice(1).map((row: any, i: number) => (
                               <tr key={i} className="hover:bg-white dark:hover:bg-slate-800 transition-colors">
                                 {row.cells.map((c: string, j: number) => (
-                                  <td key={j} className="p-3 text-slate-600 dark:text-slate-300 border-r border-transparent last:border-r-0">{c}</td>
+                                  <td key={j} className="p-3 text-slate-600 dark:text-slate-300 border-r border-transparent last:border-r-0">
+                                    {c}
+                                  </td>
                                 ))}
                               </tr>
                             ))}
@@ -156,11 +235,11 @@ export default async function InternalNewsDetailPage({ params }: { params: Promi
               </div>
             )}
 
-            {/* Bildergalerie */}
-            {galleryImages.length > 0 && (
+            {/* Legacy Galerie */}
+            {legacyGalleryImages.length > 0 && (
               <div className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-700">
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Bilderstrecke</h3>
-                <Gallery images={galleryImages} />
+                <Gallery images={legacyGalleryImages} />
               </div>
             )}
         </div>

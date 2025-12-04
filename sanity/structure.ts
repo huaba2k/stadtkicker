@@ -27,6 +27,7 @@ export const post = defineType({
     defineField({
       name: 'isInternal',
       title: 'Nur intern sichtbar?',
+      description: 'Wenn aktiviert, erscheint der Artikel nur im Mitgliederbereich.',
       type: 'boolean',
       initialValue: false,
     }),
@@ -53,19 +54,19 @@ export const post = defineType({
       type: 'image',
       options: { hotspot: true },
     }),
-
-    // --- BODY (Hier war der Fehler wahrscheinlich) ---
+    
+    // --- DER ERWEITERTE INHALTS-EDITOR ---
     defineField({
       name: 'body',
       title: 'Inhalt',
-      type: 'array',
+      type: 'array', 
       of: [
         // 1. Standard Text
         defineArrayMember({ 
           type: 'block' 
         }),
         
-        // 2. Datei Download
+        // 2. Datei Download (PDF etc.)
         defineArrayMember({
           type: 'object',
           name: 'sectionFile',
@@ -100,7 +101,7 @@ export const post = defineType({
         defineArrayMember({
             type: 'object',
             name: 'sectionInfo',
-            title: 'Info-Box',
+            title: 'Info-Box / Hinweis',
             icon: () => 'ℹ️',
             fields: [
               { name: 'title', title: 'Titel', type: 'string' },
@@ -126,14 +127,41 @@ export const post = defineType({
                     return { title: title || 'Info Box', subtitle: subtitle }
                 }
             }
-        })
-      ],
-    }), // <--- WICHTIG: Body Field geschlossen
+        }),
 
-    // --- TURNIER TABELLEN ---
+        // 5. Hero Bild (Mitten im Text)
+        defineArrayMember({
+          type: 'object',
+          name: 'sectionHero',
+          title: 'Großes Bild (Hero)',
+          icon: () => '🖼️',
+          fields: [
+            { name: 'image', title: 'Bild', type: 'image', options: { hotspot: true } },
+            { name: 'caption', title: 'Untertitel / Bildquelle', type: 'string' },
+          ],
+          preview: {
+            select: { title: 'caption', media: 'image' },
+            prepare({ title, media }) {
+              return { title: title || 'Großes Bild', media: media }
+            }
+          }
+        }),
+
+        // 6. Galerie Referenz (Mitten im Text)
+        defineArrayMember({
+          type: 'reference',
+          name: 'galleryRef',
+          title: 'Galerie einfügen',
+          icon: () => '📷',
+          to: [{type: 'gallery'}]
+        }),
+      ],
+    }),
+
+    // --- ZUSATZ FELDER (Legacy & Spezial) ---
     defineField({
       name: 'tournamentTables',
-      title: 'Turniergruppen & Ergebnisse',
+      title: 'Turniergruppen & Ergebnisse (Legacy)',
       type: 'array',
       of: [
         defineArrayMember({
@@ -148,10 +176,9 @@ export const post = defineType({
       ]
     }),
 
-    // --- GALERIE ---
     defineField({
       name: 'gallery',
-      title: 'Bildergalerie (am Ende)',
+      title: 'Bildergalerie (am Ende des Artikels)',
       type: 'array',
       options: {
         layout: 'grid', 
