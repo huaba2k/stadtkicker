@@ -45,6 +45,6 @@ export const board = defineType({
       title: 'name',
       subtitle: 'role',
       media: 'photo',
-    },
+    }, 
   },
 })
