@@ -8,7 +8,8 @@ import { media } from 'sanity-plugin-media';
 import { post } from './sanity/structure';
 import { gallery } from './sanity/gallery';
 import { download } from './sanity/download';
-import { page } from './sanity/page'; // <--- WICHTIG: Das neue Page-Schema importieren
+import { page } from './sanity/page'; 
+import { board } from './sanity/board'; // <--- 1. NEU: Importieren
 
 const config = defineConfig({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
@@ -20,13 +21,13 @@ const config = defineConfig({
   plugins: [
     structureTool(),
     visionTool(),
-    table(), // Für Turnier-Tabellen
-    media(), // Für besseren Bilder-Upload
+    table(),
+    media(),
   ],
   
   schema: {
-    // Hier fügen wir 'page' zur Liste der verfügbaren Typen hinzu
-    types: [post, gallery, download, page], 
+    // 2. NEU: 'board' hier in die Liste schreiben
+    types: [post, gallery, download, page, board], 
   },
 });
 
