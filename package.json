@@ -29,6 +29,7 @@
     "react-is": "^19.2.0",
     "sanity": "^4.19.0",
     "sanity-plugin-media": "^4.0.0",
+    "sharp": "^0.34.5",
     "styled-components": "^6.1.19",
     "yet-another-react-lightbox": "^3.25.0"
   },
