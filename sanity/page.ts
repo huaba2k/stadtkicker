@@ -126,7 +126,8 @@ export const page = defineType({
                 initialValue: 'info'
             }
           ]
-        }
+        },
+        { type: 'boardSection' }
       ]
     }),
   ],

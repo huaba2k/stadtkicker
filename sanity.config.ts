@@ -10,6 +10,7 @@ import { gallery } from './sanity/gallery';
 import { download } from './sanity/download';
 import { page } from './sanity/page'; 
 import { board } from './sanity/board'; // <--- 1. NEU: Importieren
+import { boardSection } from './sanity/boardSection';
 
 const config = defineConfig({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
@@ -27,7 +28,7 @@ const config = defineConfig({
   
   schema: {
     // 2. NEU: 'board' hier in die Liste schreiben
-    types: [post, gallery, download, page, board], 
+    types: [post, gallery, download, page, board, boardSection], 
   },
 });
 
