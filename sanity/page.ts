@@ -127,7 +127,6 @@ export const page = defineType({
             }
           ]
         },
-        { type: 'boardSection' } 
       ]
     }),
   ],
