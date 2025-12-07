@@ -6,9 +6,15 @@ import Gallery from "@/components/Gallery";
 import FileDownload from "@/components/FileDownload";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import InfoBox from "@/components/InfoBox";
+import BoardSection from '@/components/BoardSection';
 
-// Konfiguration für PortableText (Inhalt innerhalb von Text-Blöcken)
-// Damit können Redakteure Downloads oder Videos auch mitten in einen Fließtext einfügen.
+
+// Typ-Definition für einen Block (damit TypeScript glücklich ist)
+type Block = {
+  _type: string;
+  _key: string;
+  [key: string]: any; // Erlaubt beliebige weitere Felder
+};
 const ptComponents = {
     types: {
       sectionFile: ({ value }: any) => (
@@ -42,6 +48,7 @@ export default function PageBuilder({ content }: { content: any[] }) {
   return (
     <div className="flex flex-col gap-12">
       {content.map((block) => {
+
         
         // 1. TEXT ABSCHNITT
         if (block._type === 'sectionText') {
@@ -136,6 +143,15 @@ export default function PageBuilder({ content }: { content: any[] }) {
                     <InfoBox title={block.title} text={block.text} type={block.type} />
                 </section>
             );
+        }
+
+        if (block._type === 'boardSection') {
+          return (
+            <BoardSection 
+              key={block._key} 
+              headline={block.headline} 
+            />
+          );
         }
 
         return null;

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { client } from "@/sanity/client";
 import PageBuilder from "@/components/PageBuilder";
 
+
 // 1. Nur ÖFFENTLICHE Slugs generieren
 export async function generateStaticParams() {
   const query = `*[_type == "page" && isInternal != true]{ "slug": slug.current }`;
