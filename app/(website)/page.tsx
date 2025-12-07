@@ -43,7 +43,7 @@ export default async function HomePage() {
         
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-black text-white mb-6 drop-shadow-lg tracking-tight">
-            GARCHINGER <span className="text-primary-400">STADTKICKER</span>
+            GARCHINGER <span className="text-primary-400">STADTKICKER E. V.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-200 mb-8 font-medium drop-shadow-md max-w-2xl mx-auto">
             Leidenschaft, Gemeinschaft und Fußball im Herzen von Garching.

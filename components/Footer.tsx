@@ -14,7 +14,7 @@ export default function Footer() {
           <div>
             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
               <div className="w-6 h-6 bg-primary-500 rounded-full"></div> {/* Kleines Logo Icon */}
-              Garchinger Stadtkicker
+              Garchinger Stadtkicker e. V.
             </h3>
             <p className="text-primary-200/80 text-sm leading-relaxed">
               Leidenschaft, Tradition und Gemeinschaft in Garching.<br />

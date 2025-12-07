@@ -80,7 +80,7 @@ export default function Navbar() {
                 <Image src="/logo.png" alt="Garchinger Stadtkicker" fill className="object-contain" priority />
               </div>
               <span className="font-bold text-xl text-primary-700 dark:text-primary-400 hidden sm:block">
-                Garchinger Stadtkicker
+                Garchinger Stadtkicker e. V.
               </span>
             </Link>
           </div>
