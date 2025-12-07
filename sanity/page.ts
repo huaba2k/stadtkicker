@@ -125,9 +125,15 @@ export const page = defineType({
                 },
                 initialValue: 'info'
             }
-            
           ]
         },
+
+        // --- HIER IST DAS NEUE STÜCK ---
+        // 7. Vorstandschaft
+        {
+           type: 'boardSection' 
+        }
+
       ]
     }),
   ],
