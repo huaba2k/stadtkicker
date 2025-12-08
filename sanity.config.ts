@@ -17,7 +17,7 @@ const config = defineConfig({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET!,
   title: "Garchinger Stadtkicker Admin",
-  apiVersion: process.env.NEXT_PUBLIC_SANITY_API_VERSION,
+  apiVersion: '2024-01-01',
   basePath: "/studio",
   
   plugins: [
