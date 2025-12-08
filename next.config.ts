@@ -1,13 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Wichtig für Vercel: output: "export" muss fehlen, damit die App dynamisch läuft
+  // Wichtig für Manitu (erzeugt den 'out' Ordner)
+  output: "export",
+
   images: {
-    // unoptimized: true, // Kann für Vercel entfernt werden, aber lassen wir zur Sicherheit für Sanity
+    // Wichtig für Manitu (da kein Server für Bild-Optimierung da ist)
+    unoptimized: true,
+
+    // Erlaubt das Laden von Bildern von Sanity
     remotePatterns: [
-      { protocol: 'https', hostname: 'picsum.photos' },
-      { protocol: 'https', hostname: 'cdn.sanity.io' },
-      { protocol: 'https', hostname: 'openweathermap.org' },
+      {
+        protocol: "https",
+        hostname: "cdn.sanity.io",
+      },
     ],
   },
 };

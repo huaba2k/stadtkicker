@@ -10,6 +10,7 @@ import { post } from './sanity/structure';
 import { gallery } from './sanity/gallery';
 import { page } from './sanity/page';
 import { download } from './sanity/download';
+import { member } from './sanity/member';
 
 
 const config = defineConfig({
@@ -27,7 +28,7 @@ const config = defineConfig({
   ],
   
   schema: {
-    types: [post, gallery, download, page, board, boardSection ], 
+    types: [post, gallery, download, page, board, boardSection, member],
   },
 });
 
