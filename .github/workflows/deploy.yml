@@ -35,5 +35,11 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./out/     # Wir laden nur das fertige Ergebnis hoch
-          server-dir: /web/     # Zielordner
+          local-dir: ./out/
+          server-dir: /web/     # Wichtig: Prüfe kurz im nächsten Schritt, ob das stimmt!
+          protocol: ftps        # WICHTIG: Erzwingt Verschlüsselung
+          security: loose       # WICHTIG: Verhindert Zertifikats-Abbrüche
+          exclude: |            # Wir schließen unnötige Dateien aus
+            **/.git*
+            **/.git/**
+            **/node_modules/**
