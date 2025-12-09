@@ -42,7 +42,7 @@ jobs:
     # 3. Deployment via LFTP
     - name: Deploy via LFTP
       env:
-        # Diese 3 Secrets müssen in GitHub Settings angelegt sein:
+        # Diese 3 Secrets müssen in GitHub Settings angelegt sein: ds
         FTP_USER: ${{ secrets.FTP_USERNAME }}
         FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         FTP_HOST: ${{ secrets.FTP_SERVER }}
