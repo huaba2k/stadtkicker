@@ -1,9 +1,7 @@
-name: Build und Deploy (Neues Projekt)
+name: Build und Deploy (Stadtkicker)
 
 on:
   push:
-    # !!! PRÜFEN: Heißt dein Branch im neuen Repo 'master' oder 'main'?
-    # GitHub Standard ist heute meist 'main'. Ich habe beide erlaubt:
     branches: [ master, main ]
   repository_dispatch:
     types: [sanity-update]
@@ -15,51 +13,50 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # 1. Node Setup
+    # 1. Node Setup & Cache
     - name: Setup Node.js with Cache
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
 
-    # 2. Build
+    # 2. Installation und Build (mit allen Secrets für die Datenbanken)
     - name: Install Dependencies and Build
+      env:
+        # --- Sanity CMS ---
+        NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
+        NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
+        NEXT_PUBLIC_SANITY_API_VERSION: ${{ secrets.NEXT_PUBLIC_SANITY_API_VERSION }}
+        
+        # --- Wetter API ---
+        NEXT_PUBLIC_WEATHER_API_KEY: ${{ secrets.NEXT_PUBLIC_WEATHER_API_KEY }}
+
+        # --- Supabase Datenbank ---
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       run: |
         npm ci
         npm run build
-      # !!! PRÜFEN: Erstellt dein Build-Script im neuen Projekt wirklich
-      # einen Ordner namens "dist"? (Bei Nuxt oft ".output/public", bei Next "out")
 
     # 3. Deployment via LFTP
     - name: Deploy via LFTP
       env:
-        
-        # Hier die Variablen verfügbar machen, damit Next.js sie beim Build nutzen kann
-        # Prüfe, ob sie in deinem Code genau so heißen!
-        NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
-        NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
+        # Diese 3 Secrets müssen in GitHub Settings angelegt sein:
         FTP_USER: ${{ secrets.FTP_USERNAME }}
         FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         FTP_HOST: ${{ secrets.FTP_SERVER }}
-        NEXT_PUBLIC_WEATHER_API_KEY: ${{ secrets.NEXT_PUBLIC_WEATHER_API_KEY }}
       run: |
-        npm ci
-        npm run build
-        
         sudo apt-get update
         sudo apt-get install -y lftp
 
-        # Skript erstellen
+        # Verbindungseinstellungen
         echo "set ftp:ssl-allow no;" > upload_script.txt
         echo "open -u \"$FTP_USER\",\"$FTP_PASS\" $FTP_HOST;" >> upload_script.txt
         
-        # !!! WICHTIGSTE ÄNDERUNG HIER UNTEN:
-        # 1. Pfad ./out/ -> Muss zum lokalen Build-Ordner passen.
-        # 2. Pfad /web/DEIN-NEUER-ORDNER/ -> Muss auf dem Server existieren!
-        
+        # !!! WICHTIG: ZIELPFAD PRÜFEN !!!
+        # 1. ./dist/  -> Der Ordner, den Next.js erstellt hat
+        # 2. /web/stadtkicker/ -> Der Zielordner auf deinem Server (BITTE ANPASSEN!)
         echo "mirror -R -v --delete --parallel=1 ./out/ /web/" >> upload_script.txt
         
-        # Debugging aktivieren, falls es immer noch fehlschlägt (optional)
-        # echo "debug 3;" >> upload_script.txt
-
         lftp -f upload_script.txt
