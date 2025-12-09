@@ -69,6 +69,6 @@ jobs:
         # !!! WICHTIG: ZIELPFAD PRÜFEN !!!
         # 1. ./dist/  -> Der Ordner, den Next.js erstellt hat
         # 2. /web/stadtkicker/ -> Der Zielordner auf deinem Server (BITTE ANPASSEN!)
-        echo "mirror -R -v --delete --parallel=1 ./out/ /web/" >> upload_script.txt
+        echo "mirror -R -v --delete --parallel=10 ./out/ /web/homepage/" >> upload_script.txt
         
         lftp -f upload_script.txt
