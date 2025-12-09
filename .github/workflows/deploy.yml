@@ -41,11 +41,9 @@ jobs:
           LOCAL_DIR: ./out/
           REMOTE_DIR: /web/
         run: |
-          lftp -e "
+          lftp -c "
           set sftp:auto-confirm yes;
-          set net:timeout 10;
-          set net:max-retries 3;
-          open sftp://$HOST -p $PORT -u $USERNAME,$PASSWORD;
+          set ssl:verify-certificate no;
+          open sftp://$HOST -p $PORT -u '$USERNAME','$PASSWORD';
           mirror --verbose --reverse --delete --parallel=2 --exclude .git/ --exclude node_modules/ $LOCAL_DIR $REMOTE_DIR;
-          quit;
           "
