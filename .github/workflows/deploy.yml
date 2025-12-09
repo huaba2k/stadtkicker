@@ -33,8 +33,11 @@ jobs:
     # 3. Deployment via LFTP
     - name: Deploy via LFTP
       env:
-        # !!! WICHTIG: Hast du diese Secrets auch im NEUEN Repo unter
-        # Settings -> Secrets and variables -> Actions angelegt?
+        
+        # Hier die Variablen verfügbar machen, damit Next.js sie beim Build nutzen kann
+        # Prüfe, ob sie in deinem Code genau so heißen!
+        NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
+        NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
         FTP_USER: ${{ secrets.FTP_USERNAME }}
         FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         FTP_HOST: ${{ secrets.FTP_SERVER }}
