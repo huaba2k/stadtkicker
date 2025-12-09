@@ -29,21 +29,23 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: 🚀 Upload zu Manitu (SFTP)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./out/
-          server-dir: /web/         # Prüfe kurz: Ist es / oder /html/? (siehe unten)
-          
-          # HIER IST DER TRICK:
-          protocol: sftp
-          port: 22
-          
-          # Diese Option verhindert Fehler bei versteckten Dateien
-          exclude: |
-            **/.git*
-            **/.git/**
-            **/node_modules/**
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy via SFTP (lftp)
+        env:
+          HOST: ${{ secrets.SERVER }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          PORT: 22
+          LOCAL_DIR: ./out/
+          REMOTE_DIR: /web/
+        run: |
+          lftp -e "
+          set sftp:auto-confirm yes;
+          set net:timeout 10;
+          set net:max-retries 3;
+          open sftp://$HOST -p $PORT -u $USERNAME,$PASSWORD;
+          mirror --verbose --reverse --delete --parallel=2 --exclude .git/ --exclude node_modules/ $LOCAL_DIR $REMOTE_DIR;
+          quit;
+          "
