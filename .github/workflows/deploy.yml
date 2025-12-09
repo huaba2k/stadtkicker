@@ -1,49 +1,58 @@
-name: Deploy to Manitu
+name: Build und Deploy (Neues Projekt)
+
 on:
   push:
-    branches:
-      - main
+    # !!! PRÜFEN: Heißt dein Branch im neuen Repo 'master' oder 'main'?
+    # GitHub Standard ist heute meist 'main'. Ich habe beide erlaubt:
+    branches: [ master, main ]
+  repository_dispatch:
+    types: [sanity-update]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: 📥 Code holen
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: 🟢 Node.js installieren
-        uses: actions/setup-node@v4
-        with:
-            node-version: 20
-            cache: 'npm'
+    # 1. Node Setup
+    - name: Setup Node.js with Cache
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
 
-      - name: 📦 Installieren & Bauen
-        run: |
-          npm ci
-          npm run build
-        env:
-          # Wir übergeben alle Schlüssel an den Build-Prozess
-          NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
-          NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    # 2. Build
+    - name: Install Dependencies and Build
+      run: |
+        npm ci
+        npm run build
+      # !!! PRÜFEN: Erstellt dein Build-Script im neuen Projekt wirklich
+      # einen Ordner namens "dist"? (Bei Nuxt oft ".output/public", bei Next "out")
 
-      - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
+    # 3. Deployment via LFTP
+    - name: Deploy via LFTP
+      env:
+        # !!! WICHTIG: Hast du diese Secrets auch im NEUEN Repo unter
+        # Settings -> Secrets and variables -> Actions angelegt?
+        FTP_USER: ${{ secrets.FTP_USERNAME }}
+        FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        FTP_HOST: ${{ secrets.FTP_SERVER }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y lftp
 
-      - name: Deploy via SFTP (lftp)
-        env:
-          HOST: ${{ secrets.SERVER }}
-          USERNAME: ${{ secrets.USERNAME }}
-          PASSWORD: ${{ secrets.PASSWORD }}
-          PORT: 22
-          LOCAL_DIR: ./out/
-          REMOTE_DIR: /web/
-        run: |
-          lftp -c "
-          set sftp:auto-confirm yes;
-          set ssl:verify-certificate no;
-          open sftp://$HOST -p $PORT -u '$USERNAME','$PASSWORD';
-          mirror --verbose --reverse --delete --parallel=2 --exclude .git/ --exclude node_modules/ $LOCAL_DIR $REMOTE_DIR;
-          "
+        # Skript erstellen
+        echo "set ftp:ssl-allow no;" > upload_script.txt
+        echo "open -u \"$FTP_USER\",\"$FTP_PASS\" $FTP_HOST;" >> upload_script.txt
+        
+        # !!! WICHTIGSTE ÄNDERUNG HIER UNTEN:
+        # 1. Pfad ./out/ -> Muss zum lokalen Build-Ordner passen.
+        # 2. Pfad /web/DEIN-NEUER-ORDNER/ -> Muss auf dem Server existieren!
+        
+        echo "mirror -R -v --delete --parallel=1 ./out/ /web/" >> upload_script.txt
+        
+        # Debugging aktivieren, falls es immer noch fehlschlägt (optional)
+        # echo "debug 3;" >> upload_script.txt
+
+        lftp -f upload_script.txt
