@@ -5,12 +5,12 @@ import { table } from '@sanity/table';
 import { media } from 'sanity-plugin-media'; 
 import { board } from './sanity/board';
 import { boardSection } from './sanity/boardSection';
-// Hier importieren wir deine Daten-Schemata (Baupläne)
 import { post } from './sanity/structure';
 import { gallery } from './sanity/gallery';
 import { page } from './sanity/page';
 import { download } from './sanity/download';
 import { member } from './sanity/member';
+import  obituary  from './sanity/obituary';
 
 
 const config = defineConfig({
@@ -28,7 +28,7 @@ const config = defineConfig({
   ],
   
   schema: {
-    types: [post, gallery, download, page, board, boardSection, member],
+    types: [post, gallery, download, page, board, boardSection, member, obituary],
   },
 });
 
