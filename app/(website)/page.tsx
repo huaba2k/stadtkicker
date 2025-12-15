@@ -51,7 +51,7 @@ export default async function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
-              href="/verein/mitgliedschaft" 
+              href="/mitgliedschaft" 
               className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-full font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-primary-500/25"
             >
               Mitglied werden
