@@ -1,14 +1,26 @@
 Options -MultiViews
 RewriteEngine On
 
-# 1. Entferne .html Endung in der URL (optional, sieht schöner aus)
-RewriteCond %{THE_REQUEST} \s/+(.+?)\.html[\s?] [NC]
-RewriteRule ^ /%1 [R=301,L,NE]
+# 1. HTTPS erzwingen (Optional, aber empfohlen)
+RewriteCond %{HTTPS} off
+RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# 2. Leite Anfragen ohne Endung intern auf die .html Datei um
+# 2. Slash am Ende entfernen (aus /studio/ wird /studio)
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME}.html -f
-RewriteRule ^(.+)$ $1.html [L]
+RewriteRule ^(.*)/$ /$1 [L,R=301]
 
-# 3. Falls gar nichts gefunden wird -> 404 Seite (Optional, Next.js macht meist eine 404.html)
+# 3. HTML-Endung verstecken (intern umschreiben)
+# Wenn die Datei mit .html existiert, nimm diese
+RewriteCond %{DOCUMENT_ROOT}/$1.html -f
+RewriteRule ^(.+?)/?$ $1.html [L]
+
+# 4. Speziell für das SANITY STUDIO
+# Alle Aufrufe, die mit /studio beginnen und keine echte Datei sind,
+# sollen auf die studio.html (oder studio/index.html) geleitet werden.
+RewriteCond %{REQUEST_URI} ^/studio
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^studio/.*$ studio.html [L]
+
+# 5. Fallback für alles andere (Custom 404 Seite)
 ErrorDocument 404 /404.html
