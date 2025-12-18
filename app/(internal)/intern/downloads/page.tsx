@@ -66,7 +66,7 @@ return (
 
       return (
         <div key={key}>
-          <h2 className="text-xl font-bold text-primary-600 dark:text-primary-400 mb-4 uppercase tracking-wider text-sm border-b border-slate-200 dark:border-slate-700 pb-2">
+          <h2 className="text-xl font-bold text-primary-600 dark:text-primary-400 mb-4 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 pb-2">
             {label}
           </h2>
           
