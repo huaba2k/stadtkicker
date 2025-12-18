@@ -22,6 +22,6 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^studio/.*$ studio.html [L]
 
-# 5. Fallback für alles andere (Custom 404 Seite) - neu
+# 5. Fallback für alles andere (Custom 404 Seite)
 
 ErrorDocument 404 /404.html
