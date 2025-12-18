@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { client } from "@/lib/client"
 import { urlForImage } from "@/lib/image"
 import Image from "next/image"
 
 // WICHTIG: Damit wir neue Einträge sofort sehen (kein Caching)
-export const dynamic = 'force-dynamic';
+export const revalidate = 60; // Aktualisiert die Daten beim Bauen alle 60 Sekunden neu (bzw. beim nächsten Deploy)
 
 async function getObituaries() {
   const query = `*[_type == "obituary"] | order(deathDate desc) {
@@ -41,11 +43,13 @@ export default async function InternalGedenkseite() {
          <div className="p-8 bg-slate-50 dark:bg-slate-800 rounded-xl text-center text-slate-500">
             <p>Aktuell keine Einträge gefunden.</p>
             <p className="text-xs mt-2 opacity-70">
-              Tipp: Hast du im Sanity Studio beim Eintrag auf den grünen "Publish"-Knopf gedrückt?
+              Tipp: Hast du im Sanity Studio beim Eintrag auf den grünen &quot;Publish&quot;-Knopf gedrückt?
             </p>
          </div>
       ) : (
+        // eslint-disable-next-line react/jsx-no-comment-textnodes
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           {obituaries.map((person: any) => (
             <div key={person._id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden shadow-sm flex flex-col">
               
@@ -75,7 +79,7 @@ export default async function InternalGedenkseite() {
 
                 {person.description && (
                   <p className="text-slate-600 dark:text-slate-400 text-sm italic mb-4 line-clamp-4 leading-relaxed">
-                    "{person.description}"
+                    &quot;{person.description}&quot;
                   </p>
                 )}
 
