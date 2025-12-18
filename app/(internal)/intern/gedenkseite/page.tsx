@@ -29,7 +29,7 @@ export default async function InternalGedenkseite() {
       day: "2-digit", month: "2-digit", year: "numeric",
     })
   }
-
+ 
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-8 border-b border-slate-200 dark:border-slate-700 pb-4">
