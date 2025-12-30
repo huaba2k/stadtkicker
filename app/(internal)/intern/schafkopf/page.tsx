@@ -2,7 +2,7 @@ import { client } from "@/lib/client";
 import NewsList from "@/components/NewsList"; // Wir recyceln deine Komponente
 
 // Cache deaktivieren für aktuelle Ergebnisse
-export const dynamic = 'force-dynamic';
+// export const dynamic = 'force-dynamic';
 
 async function getSchafkopfPosts() {
   // Filtert alle Posts, die "Schafkopf" als Kategorie haben
