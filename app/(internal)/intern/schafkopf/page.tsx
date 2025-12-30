@@ -5,8 +5,8 @@ import NewsList from "@/components/NewsList"; // Wir recyceln deine Komponente
 // export const dynamic = 'force-dynamic';
 
 async function getSchafkopfPosts() {
-  // Filtert alle Posts, die "Schafkopf" als Kategorie haben
-  const query = `*[_type == "post" && "Schafkopf" in categories[]->title] | order(publishedAt desc) {
+  // NEU: match "Schafkopf*" findet "Schafkopf", "Schafkopf Turnier", "Schafkopf-Abend" etc.
+  const query = `*[_type == "post" && count((categories[]->title)[@ match "Schafkopf*"]) > 0] | order(publishedAt desc) {
     _id,
     title,
     slug,
@@ -15,9 +15,9 @@ async function getSchafkopfPosts() {
     overview,
     excerpt, 
     "categories": categories[]->title,
-    // WICHTIG: Wir markieren diese Posts als intern, damit der Link im NewsList stimmt
     "isInternal": true 
   }`;
+  
   return await client.fetch(query);
 }
 
@@ -37,7 +37,7 @@ export default async function InternalSchafkopfPage() {
         <div className="p-12 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
           <p className="text-slate-500">Noch keine Schafkopf-Berichte vorhanden.</p>
           <p className="text-sm text-slate-400 mt-2">
-            (Bitte prüfe im Sanity Studio, ob die Berichte die Kategorie "Schafkopf" haben)
+            (Bitte prüfe im Sanity Studio, ob die Berichte die Kategorie &quot;Schafkopf&quot; haben)
           </p>
         </div>
       )}
