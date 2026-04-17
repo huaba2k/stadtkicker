@@ -4,7 +4,10 @@ import { groq } from "next-sanity";
 
 // --- TYPEN ---
 interface SchafkopfEvent {
-  // Wir brauchen nur die Teilnehmer-Liste der Events
+  _id: string;
+  title: string;
+  start: string;
+  // participants kann Referenz-Array ODER String-Array sein
   participants: string[] | null;
 }
 
@@ -15,7 +18,7 @@ interface PlayerStat {
 
 // --- QUERIES ---
 
-// 1. Berichte holen (wie gehabt)
+// 1. Schafkopf-Berichte aus Sanity holen
 async function getSchafkopfPosts() {
   const query = groq`*[_type == "post" && count((categories[]->title)[@ match "Schafkopf*"]) > 0] | order(publishedAt desc) {
     _id,
@@ -24,68 +27,118 @@ async function getSchafkopfPosts() {
     publishedAt,
     mainImage,
     overview,
-    excerpt, 
+    excerpt,
     "categories": categories[]->title,
-    "isInternal": true 
+    "isInternal": true
   }`;
-  return await client.fetch(query);
+  try {
+    return await client.fetch(query);
+  } catch (e) {
+    console.error("Fehler beim Laden der Schafkopf-Posts:", e);
+    return [];
+  }
 }
 
-// 2. Teilnehmer aus vergangenen Turnieren holen
-async function getParticipationStats() {
-  // Wir holen alle Schafkopf-Termine, die in der Vergangenheit liegen (start < now())
-  // Und wir ziehen uns nur das Feld "participants" (und davon den Namen)
-  const query = groq`*[_type == "event" && title match "Schafkopf*" && start < now()] {
+// 2. Teilnehmer-Statistiken aus Sanity holen
+//    FLEXIBEL: Probiert zuerst Referenzen (->name), dann direkte Strings
+async function getParticipationStats(): Promise<PlayerStat[]> {
+  // Variante A: participants sind Referenzen auf member/person-Dokumente
+  const queryRef = groq`*[_type == "event" && (title match "Schafkopf*") && dateTime(start) < dateTime(now())] {
+    _id,
+    title,
+    start,
     "participants": participants[]->name
   }`;
-  
-  const events: SchafkopfEvent[] = await client.fetch(query);
 
-  // --- DATEN AGGREGIEREN (Zählen) ---
+  // Variante B: participants sind direkte Strings (kein ->)
+  const queryStr = groq`*[_type == "event" && (title match "Schafkopf*") && dateTime(start) < dateTime(now())] {
+    _id,
+    title,
+    start,
+    participants
+  }`;
+
+  let events: SchafkopfEvent[] = [];
+
+  try {
+    // Erst Referenz-Variante versuchen
+    const refResult: SchafkopfEvent[] = await client.fetch(queryRef);
+
+    // Prüfen ob irgendetwas zurückkam UND ob participants gefüllt sind
+    const hasData = refResult.some(
+      (e) => e.participants && e.participants.length > 0
+    );
+
+    if (hasData) {
+      events = refResult;
+    } else {
+      // Fallback: Strings direkt
+      events = await client.fetch(queryStr);
+    }
+  } catch (e) {
+    console.error("Fehler beim Laden der Events:", e);
+    // Fallback versuchen
+    try {
+      events = await client.fetch(queryStr);
+    } catch (e2) {
+      console.error("Auch Fallback fehlgeschlagen:", e2);
+      return [];
+    }
+  }
+
+  // --- DEBUG: Im Build-Log sichtbar ---
+  console.log(
+    `[Schafkopf] ${events.length} Events gefunden:`,
+    events.map((e) => ({
+      title: e.title,
+      start: e.start,
+      participantCount: e.participants?.length ?? 0,
+    }))
+  );
+
+  // Teilnahmen aggregieren
   const statsMap = new Map<string, number>();
-
   events.forEach((event) => {
     if (event.participants && Array.isArray(event.participants)) {
       event.participants.forEach((name) => {
-        if (name) {
-          const currentCount = statsMap.get(name) || 0;
-          statsMap.set(name, currentCount + 1);
+        if (name && typeof name === "string") {
+          statsMap.set(name, (statsMap.get(name) || 0) + 1);
         }
       });
     }
   });
 
-  // Map in Array umwandeln und sortieren (Meiste Teilnahmen zuerst)
-  const sortedStats: PlayerStat[] = Array.from(statsMap.entries())
+  return Array.from(statsMap.entries())
     .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count); // Absteigend sortieren
-
-  return sortedStats;
+    .sort((a, b) => b.count - a.count);
 }
 
+// --- PAGE ---
 export default async function InternalSchafkopfPage() {
   const [posts, playerStats] = await Promise.all([
     getSchafkopfPosts(),
-    getParticipationStats()
+    getParticipationStats(),
   ]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
-      
-      {/* --- HEADER --- */}
+
+      {/* HEADER */}
       <div className="border-b border-slate-200 dark:border-slate-700 pb-4">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Schafkopf (Intern)</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+          Schafkopf (Intern)
+        </h1>
         <p className="text-slate-500 mt-2">
-            Ergebnisse, Berichte und die ewige Teilnehmerliste unserer Runde.
+          Ergebnisse, Berichte und die ewige Teilnehmerliste unserer Runde.
         </p>
       </div>
 
-      {/* --- TEIL 1: TEILNEHMER-LISTE (RANKING) --- */}
+      {/* TEIL 1: TEILNEHMER-RANKING */}
       <section>
         <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">
-            🏆 Ewige Teilnehmerliste
+          🏆 Ewige Teilnehmerliste
         </h2>
-        
+
         {playerStats.length > 0 ? (
           <div className="bg-white dark:bg-slate-800 shadow rounded-lg overflow-hidden max-w-2xl">
             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -104,7 +157,10 @@ export default async function InternalSchafkopfPage() {
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {playerStats.map((player, index) => (
-                  <tr key={player.name} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                  <tr
+                    key={player.name}
+                    className="hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
                       {index + 1}.
                     </td>
@@ -120,19 +176,36 @@ export default async function InternalSchafkopfPage() {
             </table>
           </div>
         ) : (
-          <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-500">
-            <p>Noch keine Teilnahmen erfasst.</p>
-            <p className="text-xs mt-2">
-                Hinweis: Stelle sicher, dass im Sanity Studio bei den <strong>vergangenen Events</strong> im Feld &quot;Participants&quot; Mitglieder ausgewählt sind.
+          <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 space-y-2">
+            <p className="font-medium">Noch keine Teilnahmen gefunden.</p>
+            <p className="text-xs">
+              Mögliche Ursachen:
             </p>
+            <ul className="text-xs list-disc list-inside space-y-1 text-slate-400">
+              <li>
+                Im Sanity Studio: Haben die Events einen Titel, der mit
+                &quot;Schafkopf&quot; beginnt?
+              </li>
+              <li>
+                Sind die Events als vergangen eingetragen (Datum in der
+                Vergangenheit)?
+              </li>
+              <li>
+                Sind im Feld &quot;participants&quot; Mitglieder ausgewählt?
+              </li>
+              <li>
+                Nach Änderungen im Studio: Neu bauen (git push) nicht
+                vergessen!
+              </li>
+            </ul>
           </div>
         )}
       </section>
 
-      {/* --- TEIL 2: DIE BERICHTE (News) --- */}
+      {/* TEIL 2: SPIELBERICHTE */}
       <section>
         <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">
-            📝 Spielberichte
+          📝 Spielberichte
         </h2>
 
         {posts.length > 0 ? (
@@ -141,12 +214,12 @@ export default async function InternalSchafkopfPage() {
           <div className="p-8 bg-slate-50 dark:bg-slate-800 rounded-xl text-center border border-dashed border-slate-300 dark:border-slate-700">
             <p className="text-slate-500">Noch keine Schafkopf-Berichte vorhanden.</p>
             <p className="text-xs text-slate-400 mt-2">
-              (Bitte prüfe im Sanity Studio, ob die Berichte die Kategorie &quot;Schafkopf&quot; haben)
+              Bitte prüfe im Sanity Studio, ob die Berichte die Kategorie
+              &quot;Schafkopf&quot; haben.
             </p>
           </div>
         )}
       </section>
-
     </div>
   );
 }
