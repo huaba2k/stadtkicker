@@ -11,18 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     # 1. Node Setup & Cache
     - name: Setup Node.js with Cache
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '20'
         cache: 'npm'
 
         # NEU: Next.js Build Cache (Das ist der Turbo für den Build!)
     - name: Cache Next.js build
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         # Wir cachen den .next/cache Ordner
         path: ${{ github.workspace }}/.next/cache
