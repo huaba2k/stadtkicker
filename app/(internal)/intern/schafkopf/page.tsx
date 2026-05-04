@@ -5,71 +5,87 @@ import { supabase } from "../../../../lib/supabase";
 import { Member } from "../../../../types/supabase";
 import { client } from "../../../../sanity/client";
 import { FaTrophy, FaCrown, FaNewspaper } from "react-icons/fa";
-import NewsList from "../../../../components/NewsList"; // Die neue gruppierte Liste
+import NewsList from "../../../../components/NewsList";
 
+// Typ-Definitionen
 type SchafkopfStat = {
   member: Member;
   count: number;
 };
 
+type SchafkopfNews = {
+  _id: string;
+  title: string;
+  slug: { current: string };
+  publishedAt: string;
+  mainImage?: unknown; // Sanity Bild-Objekt
+  isInternal: boolean;
+  category: string;
+  excerpt: string;
+};
+
 export default function SchafkopfPage() {
   const [ranking, setRanking] = useState<SchafkopfStat[]>([]);
-  const [news, setNews] = useState<any[]>([]);
+  const [news, setNews] = useState<SchafkopfNews[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
 
-      // 1. Schafkopf-Events holen (Alle Zeiten)
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-        .eq('category', 'schafkopf');
-
-      const eventIds = events?.map(e => e.id) || [];
-
-      // 2. Anwesenheiten dazu laden
-      // Wir zählen 'active', 'passive' und 'helper' als Teilnahme
-      const { data: attendance } = await supabase
-        .from('attendance')
-        .select('member_id')
-        .in('event_id', eventIds)
-        .in('status', ['active', 'passive', 'helper']); 
-
-      // 3. Mitglieder laden (Nur sichtbare)
-      const { data: members } = await supabase
-        .from('members')
-        .select('*')
-        .eq('is_hidden', false);
-
-      // 4. Ranking berechnen
-      const counts: Record<string, number> = {};
-      attendance?.forEach((a: any) => {
-        counts[a.member_id] = (counts[a.member_id] || 0) + 1;
-      });
-
-      const rankedList = (members || [])
-        .map(m => ({ member: m, count: counts[m.id] || 0 }))
-        .filter(item => item.count > 0) // Nur wer schon mal da war
-        .sort((a, b) => b.count - a.count); // Meiste Einsätze oben
-
-      setRanking(rankedList as SchafkopfStat[]);
-
-      // 5. News laden (Sanity)
-      // Wir laden ALLE Posts der Kategorie Schafkopf (auch öffentliche), sortiert nach Datum
       try {
+        // 1. Schafkopf-Events holen
+        const { data: events } = await supabase
+          .from('events')
+          .select('id')
+          .eq('category', 'schafkopf');
+
+        const eventIds = events?.map(e => e.id) || [];
+
+        // 2. Anwesenheiten dazu laden
+        const { data: attendance } = await supabase
+          .from('attendance')
+          .select('member_id')
+          .in('event_id', eventIds)
+          .in('status', ['active', 'passive', 'helper']);
+
+        // 3. Mitglieder laden (Nur sichtbare)
+        const { data: members } = await supabase
+          .from('members')
+          .select('*')
+          .eq('is_hidden', false);
+
+        // 4. Ranking berechnen
+        const counts: Record<string, number> = {};
+        
+        // ESLint Fix: Typ-Inferenz von Supabase nutzen statt 'any'
+        attendance?.forEach((a) => {
+          if (a.member_id) {
+            counts[a.member_id] = (counts[a.member_id] || 0) + 1;
+          }
+        });
+
+        const rankedList = (members || [])
+          .map(m => ({ member: m, count: counts[m.id] || 0 }))
+          .filter(item => item.count > 0)
+          .sort((a, b) => b.count - a.count);
+
+        setRanking(rankedList as SchafkopfStat[]);
+
+        // 5. News laden (Sanity)
         const newsQuery = `*[_type == "post" && category == "schafkopf"] | order(publishedAt desc) {
           _id, title, slug, publishedAt, mainImage, isInternal, category,
           "excerpt": body[0].children[0].text
         }`;
-        const newsData = await client.fetch(newsQuery);
+        
+        const newsData = await client.fetch<SchafkopfNews[]>(newsQuery);
         setNews(newsData);
-      } catch (e) {
-        console.error("Sanity Fehler:", e);
-      }
 
-      setLoading(false);
+      } catch (e) {
+        console.error("Fehler beim Laden der Daten:", e);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadData();
@@ -125,7 +141,7 @@ export default function SchafkopfPage() {
           </div>
         </div>
 
-        {/* RECHTE SPALTE: NEWS & BERICHTE (Jahresarchiv) */}
+        {/* RECHTE SPALTE: NEWS & BERICHTE */}
         <div className="lg:col-span-2">
            <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-6 flex items-center gap-2">
              <FaNewspaper className="text-slate-400"/> Berichte & Ergebnisse
@@ -136,7 +152,6 @@ export default function SchafkopfPage() {
                Keine Berichte vorhanden.
              </div>
            ) : (
-             // Hier nutzen wir die intelligente Liste, die nach Jahren gruppiert
              <NewsList posts={news} />
            )}
         </div>
