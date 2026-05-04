@@ -76,7 +76,7 @@ export default function MitgliederPage() {
         if (member && ['admin', 'board', 'coach'].includes(member.role)) {
           setHasReadAccess(true);
           if (member.role === 'admin' || member.role === 'board') setCanEdit(true);
-          fetchMembers(); // Initialer Load
+          useCallback(); // Initialer Load
         }
       }
       setAuthChecking(false);
@@ -85,7 +85,7 @@ export default function MitgliederPage() {
   }, []);
 
   useEffect(() => {
-    if (hasReadAccess) fetchYearlyStats(selectedYear);
+    if (hasReadAccess) useCallback(selectedYear);
   }, [selectedYear, hasReadAccess]);
 
   // --- DATEN LADEN ---
@@ -143,7 +143,7 @@ export default function MitgliederPage() {
       return result;
     });
 
-    const current = filtered.filter(m => m.status === 'active' || m.status === 'passive' || (!m.status && m.status !== 'guest'));
+    const current = filtered.filter(m => m.status === 'active' || m.status === 'passive' || !m.status);
     const guests = filtered.filter(m => m.status === 'guest');
     const left = filtered.filter(m => m.status === 'left');
 
