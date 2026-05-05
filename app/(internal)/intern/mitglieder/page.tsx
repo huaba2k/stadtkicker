@@ -4,9 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase"; 
 import { Member } from "@/types/supabase"; 
-import { FaUserPlus, FaEdit, FaTrash, FaSave, FaFilePdf, FaTimes, FaUsers, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserSlash, FaChevronDown, FaChevronUp, FaUserTag } from "react-icons/fa";
+import { FaUserPlus, FaEdit, FaTrash, FaSave, FaTimes, FaUsers, FaFilePdf, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserSlash, FaChevronDown, FaChevronUp, FaUserTag } from "react-icons/fa";
 
-// --- 1. TYPEN ---
 type MemberFormState = {
   first_name: string;
   last_name: string;
@@ -20,6 +19,21 @@ type MemberFormState = {
   left_at: string;
   isEditing: boolean;
   editId: string | null;
+};
+
+const initialNewMember: MemberFormState = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  birth_date: "",
+  joined_at: "",
+  left_at: "",
+  role: "member",
+  status: "active",
+  city_of_residence: "", 
+  isEditing: false,
+  editId: null,
 };
 
 type AttendanceStats = {
@@ -39,16 +53,10 @@ interface YearlyStatRow {
   total_count: number;
 }
 
-const initialNewMember: MemberFormState = {
-  first_name: "", last_name: "", email: "", phone: "", birth_date: "",
-  joined_at: "", left_at: "", role: "member", status: "active",
-  city_of_residence: "", isEditing: false, editId: null,
-};
-
 export default function MitgliederPage() {
-  // --- 2. STATES ---
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [canEdit, setCanEdit] = useState(false);
   const [hasReadAccess, setHasReadAccess] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
@@ -60,35 +68,20 @@ export default function MitgliederPage() {
   
   const [showLeftMembers, setShowLeftMembers] = useState(false);
   const [showGuests] = useState(true);
+
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'last_name', direction: 'asc' });
 
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [yearlyAttendance, setYearlyAttendance] = useState<Record<string, AttendanceStats>>({});
 
-  // 1. Jahr definieren (falls nicht vorhanden)
-const currentYear = new Date().getFullYear();
-
-// 2. Export-Funktion
-const handleExportPDF = () => window.print();
-
-// 3. Statistik-Header berechnen (Wichtig für Zeile 330-332)
-const statsHeader = useMemo(() => {
-  const realMembers = members.filter(m => m.status === 'active' || m.status === 'passive');
-  const totalMembers = realMembers.length;
-  const garchingMembers = realMembers.filter(m => m.city_of_residence?.toLowerCase().includes('garching')).length;
-  const garchingPercentage = totalMembers > 0 ? ((garchingMembers / totalMembers) * 100).toFixed(1).replace('.', ',') : '0';
-  const guestCount = members.filter(m => String(m.status) === 'guest').length;
-  return { totalMembers, garchingMembers, garchingPercentage, guestCount };
-}, [members]);
-
-
-  // --- 3. HELFER & NOTIFICATION ---
+  // --- HELFER (Muss vor den Daten-Funktionen stehen) ---
   const showNotification = useCallback((message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   }, []);
 
-  // --- 4. DATEN-FUNKTIONEN (VOR DEN EFFECTS!) ---
+  // --- DATEN LADEN ---
   const fetchMembers = useCallback(async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     const { data, error } = await supabase.from("members").select("*").eq("is_hidden", false).order("last_name", { ascending: true });
@@ -103,84 +96,98 @@ const statsHeader = useMemo(() => {
 
     const statsMap: Record<string, AttendanceStats> = {};
     if (data) {
-        (data as YearlyStatRow[]).forEach((row) => {
-            statsMap[row.member_id] = {
-                active: Number(row.active_count),
-                passive: Number(row.passive_count),
-                helper: Number(row.helper_count),
-                absent: Number(row.absent_count),
-                total: Number(row.total_count)
-            };
-        });
+      (data as YearlyStatRow[]).forEach((row) => {
+        statsMap[row.member_id] = {
+          active: Number(row.active_count),
+          passive: Number(row.passive_count),
+          helper: Number(row.helper_count),
+          absent: Number(row.absent_count),
+          total: Number(row.total_count)
+        };
+      });
     }
     setYearlyAttendance(statsMap);
   }, []);
 
-  // --- 5. EFFECTS ---
+
+  // --- STARTUP ---
   useEffect(() => {
     const checkRights = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
+      if (user && user.email) {
         const { data: member } = await supabase.from("members").select("role").eq("email", user.email).maybeSingle();
         if (member && ['admin', 'board', 'coach'].includes(member.role)) {
           setHasReadAccess(true);
           if (member.role === 'admin' || member.role === 'board') setCanEdit(true);
-          fetchMembers(); 
+          fetchMembers(); // Jetzt sicher aufrufbar
         }
       }
       setAuthChecking(false);
     };
     checkRights();
-  }, [fetchMembers]);
+  }, [fetchMembers]); // Dependency hinzugefügt
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (hasReadAccess) fetchYearlyStats(selectedYear);
   }, [selectedYear, hasReadAccess, fetchYearlyStats]);
 
-  // --- 6. FILTERN & SPLITTEN ---
+  // --- FILTERN & SPLITTEN ---
   const { currentMembers, guestMembers, leftMembers } = useMemo(() => {
-    const filtered = members.filter(member => {
-      const first = (member.first_name || "").toLowerCase();
-      const last = (member.last_name || "").toLowerCase();
-      const email = (member.email || "").toLowerCase();
-      const city = (member.city_of_residence || "").toLowerCase();
+    const filtered = [...members].filter(member => {
       const s = searchTerm.toLowerCase();
-      return first.includes(s) || last.includes(s) || email.includes(s) || city.includes(s);
+      return (
+        (member.first_name || "").toLowerCase().includes(s) ||
+        (member.last_name || "").toLowerCase().includes(s) ||
+        (member.email || "").toLowerCase().includes(s) ||
+        (member.city_of_residence || "").toLowerCase().includes(s)
+      );
     });
 
     filtered.sort((a, b) => {
       let valA: string | number = '';
       let valB: string | number = '';
-
+      
       if (sortConfig.key.startsWith('attendance_')) {
         const type = sortConfig.key.split('_')[1] as keyof AttendanceStats;
         valA = yearlyAttendance[a.id]?.[type] ?? 0;
         valB = yearlyAttendance[b.id]?.[type] ?? 0;
       } else {
-        valA = (a as Record<string, unknown>)[sortConfig.key] as string | number ?? "";
-        valB = (b as Record<string, unknown>)[sortConfig.key] as string | number ?? "";
+valA = (a as Record<string, unknown>)[sortConfig.key] as string | number ?? "";
+valB = (b as Record<string, unknown>)[sortConfig.key] as string | number ?? "";
+
       }
-      
+
       let result = 0;
       if (typeof valA === 'string' && typeof valB === 'string') {
         result = valA.localeCompare(valB, 'de', { sensitivity: 'base' });
       } else {
         result = Number(valA) - Number(valB);
       }
+
       if (sortConfig.direction === 'desc') result *= -1;
       return result === 0 ? (a.last_name || "").localeCompare(b.last_name || "") : result;
     });
 
-    return {
-      currentMembers: filtered.filter(m => m.status === 'active' || m.status === 'passive' || (!m.status && String(m.status) !== 'guest')),
-      guestMembers: filtered.filter(m => String(m.status) === 'guest'),
-      leftMembers: filtered.filter(m => String(m.status) === 'left')
-    };
+    const current = filtered.filter(m => m.status === 'active' || m.status === 'passive' || (!m.status || String(m.status) !== 'guest'));
+    const guests = filtered.filter(m => String(m.status) === 'guest');
+    const left = filtered.filter(m => String(m.status) === 'left');
+
+    return { currentMembers: current, guestMembers: guests, leftMembers: left };
   }, [members, searchTerm, sortConfig, yearlyAttendance]);
 
-  // ... Ab hier folgen unverändert deine CRUD-Methoden und das JSX-Return
+  // showNotification wurde hier entfernt, da es bereits oben (vor fetchMembers) definiert ist.
 
+  const handleExportPDF = () => window.print();
+  
+  const statsHeader = useMemo(() => {
+    const realMembers = members.filter(m => m.status === 'active' || m.status === 'passive');
+    const totalMembers = realMembers.length;
+    const garchingMembers = realMembers.filter(m => (m.city_of_residence || "").toLowerCase().includes('garching')).length;
+    const garchingPercentage = totalMembers > 0 ? ((garchingMembers / totalMembers) * 100).toFixed(1).replace('.', ',') : '0';
+    const guestCount = members.filter(m => String(m.status) === 'guest').length;
+    return { totalMembers, garchingMembers, garchingPercentage, guestCount };
+  }, [members]);
 
   // --- CRUD ---
   const startAdd = () => { 
@@ -199,7 +206,7 @@ const statsHeader = useMemo(() => {
       joined_at: member.joined_at ? new Date(member.joined_at).toISOString().split('T')[0] : "",
       left_at: member.left_at ? new Date(member.left_at).toISOString().split('T')[0] : "",
       role: member.role, 
-      status: (member.status as MemberFormState["status"]) || "active", 
+      status: (member.status as MemberFormState["status"]) || "active",
       city_of_residence: member.city_of_residence || "",
       isEditing: true, editId: member.id,
     });
@@ -364,16 +371,8 @@ const statsHeader = useMemo(() => {
 
               <input placeholder="E-Mail" type="email" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} />
               <input required placeholder="Wohnort" className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.city_of_residence} onChange={e => setNewMember({...newMember, city_of_residence: e.target.value})} />
-              
-              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value as Member["role"]})}><option value="member">Mitglied</option><option value="board">Vorstand</option><option value="coach">Trainer</option><option value="admin">Admin</option></select>
-              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.status} onChange={e => setNewMember({...newMember, status: e.target.value as MemberFormState["status"]})}>
-
-                <option value="active">Aktiv</option>
-                <option value="passive">Passiv</option>
-                <option value="guest">Gast (Extern)</option>
-                <option value="left">Ausgeschieden</option>
-              </select>
-
+              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value as MemberFormState["role"]})}>  <option value="member">Mitglied</option><option value="board">Vorstand</option><option value="coach">Trainer</option>  <option value="admin">Admin</option></select>
+              <select className="p-2 rounded border dark:bg-slate-900 dark:border-slate-600 dark:text-white" value={newMember.status} onChange={e => setNewMember({...newMember, status: e.target.value as MemberFormState["status"]})}><option value="active">Aktiv</option><option value="passive">Passiv</option><option value="guest">Gast (Extern)</option><option value="left">Ausgeschieden</option></select>
               <div className="md:col-span-3 flex justify-end gap-2 mt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded flex items-center gap-1"><FaTimes /> Abbrechen</button>
                 <button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 flex items-center gap-1" disabled={loading}><FaSave /> Speichern</button>
