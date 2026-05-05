@@ -1,15 +1,22 @@
+// app/(internal)/intern/mitglieder/[id]/page.tsx
 import { supabase } from "@/lib/supabase";
 import MemberDetailClient from "./MemberDetailClient";
 
-// 1. Hier darf generateStaticParams stehen, da dies eine Server-Komponente ist
+// Diese Funktion MUSS exportiert werden und darf NUR hier stehen
 export async function generateStaticParams() {
-  const { data: members } = await supabase.from('members').select('id');
-  return members?.map((member) => ({
-    id: member.id,
-  })) || [];
+  try {
+    const { data: members } = await supabase.from('members').select('id');
+    if (!members) return [];
+    return members.map((member) => ({
+      id: member.id.toString(), // ID sicherheitshalber als String
+    }));
+  } catch (e) {
+    console.error("Build Error generateStaticParams:", e);
+    return [];
+  }
 }
 
-// 2. Die Page reicht die Params einfach an die Client-Komponente weiter
+// Die Server-Page
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   return <MemberDetailClient id={resolvedParams.id} />;
