@@ -1,7 +1,6 @@
 // app/(internal)/intern/mitglieder/[id]/page.tsx
 import MemberDetailClient from './MemberDetailClient';
 import { createClient } from '@supabase/supabase-js';
-import MemberAttendanceHistory from "@/components/MemberAttendanceHistory";
 
 export const dynamicParams = false;
 
@@ -57,9 +56,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     <div className="space-y-8">
       {/* 1. Die Details (Stammdaten, Bearbeiten-Formular) */}
       <MemberDetailClient id={id} />
-
-      {/* 2. Die neue Historie (Anwesenheitstabelle) darunter */}
-      <MemberAttendanceHistory memberId={id} />
     </div>
   );
 }
