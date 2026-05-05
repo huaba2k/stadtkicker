@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { Member } from "@/types/supabase"; 
 import { FaArrowLeft, FaEnvelope, FaPhone, FaMapMarkerAlt, FaBirthdayCake } from 'react-icons/fa';
+import { Member } from '@/types/supabase';
 
 export default function MemberDetailClient({ id }: { id: string }) {
-    const [member, setMember] = useState<Member | null>(null);
-    const [loading, setLoading] = useState(true);
+  const [member, setMember] = useState<Member | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchMember() {
