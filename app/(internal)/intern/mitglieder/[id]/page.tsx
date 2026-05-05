@@ -17,14 +17,6 @@ import {
   FaTrophy
 } from "react-icons/fa";
 
-export async function generateStaticParams() {
-  const { data: members } = await supabase.from('members').select('id');
-  
-  return members?.map((member) => ({
-    id: member.id,
-  })) || [];
-}
-
 interface EventData {
   id: string;
   start_time: string;
