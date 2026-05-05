@@ -30,8 +30,6 @@ interface AttendanceData {
   events: EventData[]; // Muss ein Array sein laut Fehlermeldung
 }
 
-
-
 // Typen definieren
 type MemberData = {
   first_name: string;
